@@ -19,22 +19,22 @@ declare module 'obsidian' {
 
 // Remember to rename these classes and interfaces!
 
-interface MyPluginSettings {
+interface IOTOUpdateSettings {
 	updateAPIKey: string;
 	updateBaseID: string;
 	updateTableID: string;
 	updateTables: NocoDBTable[];
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
+const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: '',
 	updateBaseID: 'appq2MtxkPBdZc3Sc',
 	updateTableID: 'tbl4GESFGwmmC3b0X',
 	updateTables: [],
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class IOTOUpdate extends Plugin {
+	settings: IOTOUpdateSettings;
 	iotoFrameworkPath: string;
 
 	async onload() {
@@ -118,7 +118,7 @@ export default class MyPlugin extends Plugin {
 		);
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+    this.addSettingTab(new IOTOUpdateSettingTab(this.app, this));
 
 	}
 
@@ -135,10 +135,10 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+class IOTOUpdateSettingTab extends PluginSettingTab {
+	plugin: IOTOUpdate;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: IOTOUpdate) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
