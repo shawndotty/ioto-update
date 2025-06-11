@@ -1,5 +1,5 @@
 import { App, Notice, normalizePath, Plugin, PluginSettingTab, Setting } from 'obsidian';
-
+import { t } from "./lang/helpers";
 declare module 'obsidian' {
 	interface App {
 		plugins: {
@@ -73,7 +73,7 @@ export default class IOTOUpdate extends Plugin {
 
 		createNocoDBCommand(
 			'ioto-update-core',
-			'IOTO Update Core',
+			t('Update Core Files'),
 			{
 				viewID: "viwmC4tRjRsVNlDdM",
 				targetFolderPath: this.iotoFrameworkPath
@@ -82,7 +82,7 @@ export default class IOTOUpdate extends Plugin {
 
 		createNocoDBCommand(
 			'ioto-update-help',
-			'IOTO Update Help',
+			t('Update Help Docs'),
 			{
 				tableID: "tblXcG6xRogRCBtvF",
 				viewID: "viwI7YpGWoKyvbqdz",
@@ -92,7 +92,7 @@ export default class IOTOUpdate extends Plugin {
 
 		createNocoDBCommand(
 			'ioto-update-myioto',
-			'IOTO Update MYIOTO',
+			t('Update MYIOTO Templates'),
 			{
 				viewID: "viwLGvTJb1ody2a4a",
 				targetFolderPath: this.iotoFrameworkPath
@@ -101,7 +101,7 @@ export default class IOTOUpdate extends Plugin {
 
 		createNocoDBCommand(
 			'ioto-update-css',
-			'IOTO Update CSS',
+			t('Update CSS Snippets'),
 			{
 				viewID: "viw4H3fKTXF4p0OU8",
 				targetFolderPath: `${this.app.vault.configDir}`
@@ -111,7 +111,7 @@ export default class IOTOUpdate extends Plugin {
 
 		createNocoDBCommand(
 			'ioto-update-setting-plugin',
-			'IOTO Update Setting Plugin',
+			t('Update IOTO Framwork Setting Plugin'),
 			{
 				viewID: "viw4zaLjEiixIpJpk",
 				targetFolderPath: `${this.app.vault.configDir}`
@@ -151,10 +151,10 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Update API Key')
-			.setDesc('Please enter your update API Key')
+			.setName(t('Your Update API Key'))
+			.setDesc(t('Please enter your update API Key'))
 			.addText(text => text
-				.setPlaceholder('Enter your update API Key')
+				.setPlaceholder(t('Enter your update API Key'))
 				.setValue(this.plugin.settings.updateAPIKey)
 				.onChange(async (value) => {
 					this.plugin.settings.updateAPIKey = value;
@@ -222,7 +222,7 @@ class MyObsidian {
 
     
 	const updateNotice = new Notice(
-	this.buildFragment("更新准备中，请稍后……", "#00ff00"),
+	this.buildFragment(t("Updating, plese wait for a moment"), "#00ff00"),
 	0
 	);
 	const apiKeyValid = await this.nocoDBSyncer.checkApiKey();
@@ -230,8 +230,8 @@ class MyObsidian {
 	if (!apiKeyValid) {
 	new Notice(
 		this.buildFragment(
-		"您的更新API Key已过期，请获取新的API Key。",
-		"#ff0000"
+			t("Your API Key was expired. Please get a new one."),
+			"#ff0000"
 		),
 		4000
 	);
@@ -373,7 +373,7 @@ class NocoDBSync {
 
         const data = responseObj.json;
         records = records.concat(data.records);
-        new Notice(`已获取${records.length}条数据记录`);
+        new Notice(`${t("Got")} ${records.length} ${t("records")}`);
 
         offset = data.offset || "";
       } catch (error) {
@@ -437,7 +437,7 @@ class NocoDBSync {
   }
 
   async createOrUpdateNotesInOBFromSourceTable(sourceTable: NocoDBTable): Promise<void> {
-    new Notice("数据获取中……");
+    new Notice(t("Getting Data ……"));
 
     const { vault } = this.app;
 
@@ -448,8 +448,8 @@ class NocoDBSync {
     );
 
     new Notice(
-      `一共有${notesToCreateOrUpdate.length}个文件需要更新或创建`
-    );
+		`${t("There are")} ${notesToCreateOrUpdate.length} ${t("files needed to be updated or created.")}`
+	);
 
     let configDirModified = 0;
 
@@ -467,7 +467,7 @@ class NocoDBSync {
           await vault.create(notePath, note.MD ? note.MD : "");
         } else if (noteExists && notePath.startsWith(".")) {
           await vault.adapter.write(notePath, note.MD).catch((r: any) => {
-            new Notice("文件写入失败: " + r);
+            new Notice(t("Failed to write file: ") + r);
           });
           configDirModified++;
         } else {
@@ -480,10 +480,10 @@ class NocoDBSync {
       notesToCreateOrUpdate = notesToCreateOrUpdate.slice(10);
       if (notesToCreateOrUpdate.length) {
         new Notice(
-          `还有${notesToCreateOrUpdate.length}个文件需要处理`
+		  `${t("There are")} ${notesToCreateOrUpdate.length} ${t("files needed to be processed.")}`
         );
       } else {
-        new Notice("全部处理完成");
+        new Notice(t("All Finished."));
       }
     }
   }
