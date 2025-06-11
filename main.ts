@@ -17,13 +17,6 @@ declare module 'obsidian' {
 	}
 }
 
-interface DynamicSetting {
-  id: string;
-  name: string;
-  value: string;
-  children: DynamicSetting[]; // 添加子设置数组
-}
-
 // Remember to rename these classes and interfaces!
 
 interface IOTOUpdateSettings {
@@ -48,6 +41,7 @@ export default class IOTOUpdate extends Plugin {
 		await this.loadSettings();
 		this.iotoFrameworkPath = this.app.plugins.plugins["ioto-settings"]?.settings?.IOTOFrameworkPath || "";
 
+		// Test
 		// 优化后的 addCommand 方法，减少重复代码，提升可维护性
 		const createNocoDBCommand = (
 			id: string,
@@ -59,6 +53,7 @@ export default class IOTOUpdate extends Plugin {
 				id,
 				name,
 				callback: async () => {
+					
 					const nocoDBSettings = {
 						apiKey: this.settings.updateAPIKey,
 						defaultBaseID: this.settings.updateBaseID,
