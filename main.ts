@@ -17,6 +17,13 @@ declare module 'obsidian' {
 	}
 }
 
+interface DynamicSetting {
+  id: string;
+  name: string;
+  value: string;
+  children: DynamicSetting[]; // 添加子设置数组
+}
+
 // Remember to rename these classes and interfaces!
 
 interface IOTOUpdateSettings {
@@ -158,7 +165,11 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 					this.plugin.settings.updateAPIKey = value;
 					await this.plugin.saveSettings();
 				}));
+    
+    
 	}
+
+  
 }
 
 // 类型定义
@@ -204,15 +215,11 @@ declare function requestUrl(options: any): Promise<any>;
 class MyObsidian {
   app: any;
   vault: any;
-  activeFile: any;
-  folder: string;
   nocoDBSyncer: NocoDBSync;
 
   constructor(app: any, nocoDBSyncer: NocoDBSync) {
     this.app = app;
     this.vault = app.vault;
-    this.activeFile = app.workspace.getActiveFile();
-    this.folder = this.activeFile.parent.path;
     this.nocoDBSyncer = nocoDBSyncer;
   }
 
