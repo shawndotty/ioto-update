@@ -145,7 +145,7 @@ export default class IOTOUpdate extends Plugin {
 						nocoDBSettings.tables[0]
 					);
 					if (reloadOB) {
-						this.app.commands.executeCommandById("app:reload");
+						this.app.workspace.trigger("app:reload");
 					}
 				},
 			});
