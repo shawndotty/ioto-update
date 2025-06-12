@@ -7,22 +7,6 @@ import {
 	Setting,
 } from "obsidian";
 import { t } from "./lang/helpers";
-declare module "obsidian" {
-	interface App {
-		plugins: {
-			plugins: {
-				[key: string]: {
-					settings: {
-						IOTOFrameworkPath: string;
-					};
-				};
-			};
-		};
-		commands: {
-			executeCommandById: (id: string) => void;
-		};
-	}
-}
 
 // Remember to rename these classes and interfaces!
 
@@ -30,6 +14,7 @@ interface IOTOUpdateSettings {
 	updateAPIKey: string;
 	userEmail: string;
 	userChecked: boolean;
+	iotoFrameworkPath: string;
 	updateIDs: {
 		iotoCore: {
 			baseID: string;
@@ -62,6 +47,7 @@ interface IOTOUpdateSettings {
 const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
 	userEmail: "",
+	iotoFrameworkPath: "",
 	userChecked: false,
 	updateIDs: {
 		iotoCore: {
@@ -94,14 +80,9 @@ const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 
 export default class IOTOUpdate extends Plugin {
 	settings: IOTOUpdateSettings;
-	iotoFrameworkPath: string;
 
 	async onload() {
 		await this.loadSettings();
-
-		this.iotoFrameworkPath =
-			this.app.plugins.plugins["ioto-settings"]?.settings
-				?.IOTOFrameworkPath || "";
 
 		// 优化后的 addCommand 方法，减少重复代码，提升可维护性
 		const createNocoDBCommand = (
@@ -157,14 +138,14 @@ export default class IOTOUpdate extends Plugin {
 			baseID: this.settings.updateIDs.iotoCore.baseID,
 			tableID: this.settings.updateIDs.iotoCore.tableID,
 			viewID: this.settings.updateIDs.iotoCore.viewID,
-			targetFolderPath: this.iotoFrameworkPath,
+			targetFolderPath: this.settings.iotoFrameworkPath,
 		});
 
 		createNocoDBCommand("ioto-update-help", t("Update Help Docs"), {
 			baseID: this.settings.updateIDs.iotoHelpDocs.baseID,
 			tableID: this.settings.updateIDs.iotoHelpDocs.tableID,
 			viewID: this.settings.updateIDs.iotoHelpDocs.viewID,
-			targetFolderPath: this.iotoFrameworkPath,
+			targetFolderPath: this.settings.iotoFrameworkPath,
 		});
 
 		createNocoDBCommand(
@@ -174,7 +155,7 @@ export default class IOTOUpdate extends Plugin {
 				baseID: this.settings.updateIDs.myIotoFull.baseID,
 				tableID: this.settings.updateIDs.myIotoFull.tableID,
 				viewID: this.settings.updateIDs.myIotoFull.viewID,
-				targetFolderPath: this.iotoFrameworkPath,
+				targetFolderPath: this.settings.iotoFrameworkPath,
 			}
 		);
 
@@ -214,6 +195,7 @@ export default class IOTOUpdate extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
+
 		if (
 			!this.settings.userChecked &&
 			this.settings.userEmail &&
@@ -307,6 +289,19 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.userEmail)
 					.onChange(async (value) => {
 						this.plugin.settings.userEmail = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName(t("IOTO Framework Path"))
+			.setDesc(t("Please enter the path to your IOTO Framework"))
+			.addText((text) =>
+				text
+					.setPlaceholder(t("Enter the path to your IOTO Framework"))
+					.setValue(this.plugin.settings.iotoFrameworkPath)
+					.onChange(async (value) => {
+						this.plugin.settings.iotoFrameworkPath = value;
 						await this.plugin.saveSettings();
 					})
 			);

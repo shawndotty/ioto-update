@@ -29,4 +29,9 @@ export default {
 	"Please enter your Email when you purchase this product":
 		"Please enter your Email when you purchase this product",
 	"Enter your email": "Enter your email",
+	"IOTO Framework Path": "IOTO Framework Path",
+	"Please enter the path to your IOTO Framework":
+		"Please enter the path to your IOTO Framework",
+	"Enter the path to your IOTO Framework":
+		"Enter the path to your IOTO Framework",
 };
