@@ -28,16 +28,66 @@ declare module "obsidian" {
 
 interface IOTOUpdateSettings {
 	updateAPIKey: string;
-	updateBaseID: string;
-	updateTableID: string;
-	updateTables: NocoDBTable[];
+	userEmail: string;
+	updateIDs: {
+		iotoCore: {
+			baseID: string;
+			tableID: string;
+			viewID: string;
+		};
+		myIotoFull: {
+			baseID: string;
+			tableID: string;
+			viewID: string;
+		};
+		iotoSettingPlugin: {
+			baseID: string;
+			tableID: string;
+			viewID: string;
+		};
+		iotoCssSnippets: {
+			baseID: string;
+			tableID: string;
+			viewID: string;
+		};
+		iotoHelpDocs: {
+			baseID: string;
+			tableID: string;
+			viewID: string;
+		};
+	};
 }
 
 const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
-	updateBaseID: "appq2MtxkPBdZc3Sc",
-	updateTableID: "tbl4GESFGwmmC3b0X",
-	updateTables: [],
+	userEmail: "",
+	updateIDs: {
+		iotoCore: {
+			baseID: "",
+			tableID: "",
+			viewID: "",
+		},
+		myIotoFull: {
+			baseID: "",
+			tableID: "",
+			viewID: "",
+		},
+		iotoSettingPlugin: {
+			baseID: "",
+			tableID: "",
+			viewID: "",
+		},
+		iotoCssSnippets: {
+			baseID: "",
+			tableID: "",
+			viewID: "",
+		},
+		iotoHelpDocs: {
+			baseID: "",
+			tableID: "",
+			viewID: "",
+		},
+	},
 };
 
 export default class IOTOUpdate extends Plugin {
@@ -46,6 +96,7 @@ export default class IOTOUpdate extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
 		this.iotoFrameworkPath =
 			this.app.plugins.plugins["ioto-settings"]?.settings
 				?.IOTOFrameworkPath || "";
@@ -67,10 +118,25 @@ export default class IOTOUpdate extends Plugin {
 				id,
 				name,
 				callback: async () => {
+					if (!this.settings.updateAPIKey) {
+						new Notice(
+							t("You must provide an API Key to run this command")
+						);
+						return;
+					}
+					if (!this.settings.userEmail) {
+						new Notice(
+							t(
+								"You need to provide the email for your account to run this command"
+							)
+						);
+						return;
+					}
+					if (!this.settings.updateIDs.iotoCore.baseID) {
+						await this.getUpdateIDs();
+					}
 					const nocoDBSettings = {
 						apiKey: this.settings.updateAPIKey,
-						defaultBaseID: this.settings.updateBaseID,
-						defaultTableID: this.settings.updateTableID,
 						tables: [tableConfig],
 					};
 					const myNocoDB = new MyNocoDB(nocoDBSettings);
@@ -87,13 +153,16 @@ export default class IOTOUpdate extends Plugin {
 		};
 
 		createNocoDBCommand("ioto-update-core", t("Update Core Files"), {
-			viewID: "viwmC4tRjRsVNlDdM",
+			baseID: this.settings.updateIDs.iotoCore.baseID,
+			tableID: this.settings.updateIDs.iotoCore.tableID,
+			viewID: this.settings.updateIDs.iotoCore.viewID,
 			targetFolderPath: this.iotoFrameworkPath,
 		});
 
 		createNocoDBCommand("ioto-update-help", t("Update Help Docs"), {
-			tableID: "tblXcG6xRogRCBtvF",
-			viewID: "viwI7YpGWoKyvbqdz",
+			baseID: this.settings.updateIDs.iotoHelpDocs.baseID,
+			tableID: this.settings.updateIDs.iotoHelpDocs.tableID,
+			viewID: this.settings.updateIDs.iotoHelpDocs.viewID,
 			targetFolderPath: this.iotoFrameworkPath,
 		});
 
@@ -101,7 +170,9 @@ export default class IOTOUpdate extends Plugin {
 			"ioto-update-myioto",
 			t("Update MYIOTO Templates"),
 			{
-				viewID: "viwLGvTJb1ody2a4a",
+				baseID: this.settings.updateIDs.myIotoFull.baseID,
+				tableID: this.settings.updateIDs.myIotoFull.tableID,
+				viewID: this.settings.updateIDs.myIotoFull.viewID,
 				targetFolderPath: this.iotoFrameworkPath,
 			}
 		);
@@ -110,7 +181,9 @@ export default class IOTOUpdate extends Plugin {
 			"ioto-update-css",
 			t("Update CSS Snippets"),
 			{
-				viewID: "viw4H3fKTXF4p0OU8",
+				baseID: this.settings.updateIDs.iotoCssSnippets.baseID,
+				tableID: this.settings.updateIDs.iotoCssSnippets.tableID,
+				viewID: this.settings.updateIDs.iotoCssSnippets.viewID,
 				targetFolderPath: `${this.app.vault.configDir}`,
 			},
 			true
@@ -120,7 +193,9 @@ export default class IOTOUpdate extends Plugin {
 			"ioto-update-setting-plugin",
 			t("Update IOTO Framwork Setting Plugin"),
 			{
-				viewID: "viw4zaLjEiixIpJpk",
+				baseID: this.settings.updateIDs.iotoSettingPlugin.baseID,
+				tableID: this.settings.updateIDs.iotoSettingPlugin.tableID,
+				viewID: this.settings.updateIDs.iotoSettingPlugin.viewID,
 				targetFolderPath: `${this.app.vault.configDir}`,
 			},
 			true
@@ -142,6 +217,45 @@ export default class IOTOUpdate extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		if (this.isValidEmail(this.settings.userEmail)) {
+			await this.getUpdateIDs();
+		}
+	}
+
+	isValidEmail(email: string): boolean {
+		// 基础格式检查：非空、包含@符号、@后包含点号
+		if (
+			!email ||
+			email.indexOf("@") === -1 ||
+			email.indexOf(".", email.indexOf("@")) === -1
+		) {
+			return false;
+		}
+
+		// 正则表达式验证（符合RFC 5322标准）
+		const emailRegex =
+			/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+
+		return emailRegex.test(email);
+	}
+
+	async getUpdateIDs() {
+		const userEmail = this.settings.userEmail.trim();
+		const getUpdateIDsUrl = `https://api.airtable.com/v0/appxQqkHaEkjUQnBf/EmailSync?maxRecords=3&view=Grid%20view&filterByFormula=${encodeURI(
+			"{Email} = '" + userEmail + "'"
+		)}&fields%5B%5D=IOTOUpdateIDs`;
+		const getUpdateIDsToken =
+			"patCw7AoXaktNgHNM.bf8eb50a33da820fde56b1f5d4cf5899bc8c508096baf36b700e94cd13570000";
+
+		const response = await requestUrl({
+			url: getUpdateIDsUrl,
+			method: "GET",
+			headers: { Authorization: "Bearer " + getUpdateIDsToken },
+		});
+
+		this.settings.updateIDs = JSON.parse(
+			response.json.records[0].fields.IOTOUpdateIDs.first()
+		);
 	}
 }
 
@@ -170,6 +284,21 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		new Setting(containerEl)
+			.setName(t("Your Email Address"))
+			.setDesc(
+				t("Please enter your Email when you purchase this product")
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder(t("Enter your email"))
+					.setValue(this.plugin.settings.userEmail)
+					.onChange(async (value) => {
+						this.plugin.settings.userEmail = value;
+						await this.plugin.saveSettings();
+					})
+			);
 	}
 }
 
@@ -183,10 +312,6 @@ interface NocoDBTable {
 
 interface NocoDBSettings {
 	apiKey: string;
-	defaultBaseID?: string;
-	baseID?: string;
-	defaultTableID?: string;
-	tableID?: string;
 	tables?: NocoDBTable[];
 	iotoUpdate?: boolean;
 	syncSettings?: {
@@ -270,13 +395,8 @@ class MyObsidian {
 
 class MyNocoDB {
 	apiKey: string;
-	defaultBaseID: string;
-	defaultTableID: string;
 	tables: NocoDBTable[];
 	apiUrlRoot: string;
-	apiUrlBase: string;
-	apiUrl: string;
-	recordUrlBase: string;
 	iotoUpdate: boolean;
 	recordFieldsNames: {
 		title: string;
@@ -288,15 +408,8 @@ class MyNocoDB {
 
 	constructor(nocoDBSettings: NocoDBSettings) {
 		this.apiKey = nocoDBSettings.apiKey;
-		this.defaultBaseID =
-			nocoDBSettings.defaultBaseID || nocoDBSettings.baseID || "";
-		this.defaultTableID =
-			nocoDBSettings.defaultTableID || nocoDBSettings.tableID || "";
 		this.tables = nocoDBSettings.tables || [];
 		this.apiUrlRoot = "https://api.airtable.com/v0/";
-		this.apiUrlBase = this.apiUrlRoot + `${this.defaultBaseID}/`;
-		this.apiUrl = this.apiUrlBase + this.defaultTableID;
-		this.recordUrlBase = `https://airtable.com/${this.defaultBaseID}/`;
 		this.iotoUpdate = nocoDBSettings.iotoUpdate || false;
 		this.recordFieldsNames = {
 			...{
@@ -310,9 +423,7 @@ class MyNocoDB {
 	}
 
 	makeApiUrl(sourceTable: NocoDBTable): string {
-		return `${this.apiUrlRoot}${sourceTable.baseID || this.defaultBaseID}/${
-			sourceTable.tableID || this.defaultTableID
-		}`;
+		return `${this.apiUrlRoot}${sourceTable.baseID}/${sourceTable.tableID}`;
 	}
 }
 
