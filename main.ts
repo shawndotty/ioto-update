@@ -29,6 +29,7 @@ declare module "obsidian" {
 interface IOTOUpdateSettings {
 	updateAPIKey: string;
 	userEmail: string;
+	userChecked: boolean;
 	updateIDs: {
 		iotoCore: {
 			baseID: string;
@@ -61,6 +62,7 @@ interface IOTOUpdateSettings {
 const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
 	userEmail: "",
+	userChecked: false,
 	updateIDs: {
 		iotoCore: {
 			baseID: "",
@@ -101,7 +103,6 @@ export default class IOTOUpdate extends Plugin {
 			this.app.plugins.plugins["ioto-settings"]?.settings
 				?.IOTOFrameworkPath || "";
 
-		// Test
 		// 优化后的 addCommand 方法，减少重复代码，提升可维护性
 		const createNocoDBCommand = (
 			id: string,
@@ -132,7 +133,7 @@ export default class IOTOUpdate extends Plugin {
 						);
 						return;
 					}
-					if (!this.settings.updateIDs.iotoCore.baseID) {
+					if (!this.settings.userChecked) {
 						await this.getUpdateIDs();
 					}
 					const nocoDBSettings = {
@@ -213,16 +214,17 @@ export default class IOTOUpdate extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
 		if (
+			!this.settings.userChecked &&
 			this.settings.userEmail &&
 			this.isValidEmail(this.settings.userEmail)
 		) {
 			await this.getUpdateIDs();
 		}
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
 	}
 
 	isValidEmail(email: string): boolean {
@@ -256,9 +258,15 @@ export default class IOTOUpdate extends Plugin {
 			headers: { Authorization: "Bearer " + getUpdateIDsToken },
 		});
 
-		this.settings.updateIDs = JSON.parse(
-			response.json.records[0].fields.IOTOUpdateIDs.first()
-		);
+		if (response.json.records.length) {
+			this.settings.updateIDs = JSON.parse(
+				response.json.records[0].fields.IOTOUpdateIDs.first()
+			);
+			this.settings.userChecked = true;
+		} else {
+			this.settings.updateIDs = DEFAULT_SETTINGS.updateIDs;
+			this.settings.userChecked = DEFAULT_SETTINGS.userChecked;
+		}
 	}
 }
 
