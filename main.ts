@@ -8,6 +8,11 @@ import {
 } from "obsidian";
 import { t } from "./lang/helpers";
 
+interface AirtableIds {
+	baseId: string;
+	tableId: string;
+	viewId: string;
+}
 // Remember to rename these classes and interfaces!
 
 interface IOTOUpdateSettings {
@@ -15,6 +20,9 @@ interface IOTOUpdateSettings {
 	userEmail: string;
 	userChecked: boolean;
 	iotoFrameworkPath: string;
+	userAPIKey: string;
+	userSyncSettingUrl: string;
+	userSyncScriptsFolder: string;
 	updateIDs: {
 		iotoCore: {
 			baseID: string;
@@ -48,6 +56,9 @@ const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
 	userEmail: "",
 	iotoFrameworkPath: "",
+	userAPIKey: "",
+	userSyncSettingUrl: "",
+	userSyncScriptsFolder: "",
 	userChecked: false,
 	updateIDs: {
 		iotoCore: {
@@ -80,9 +91,13 @@ const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 
 export default class IOTOUpdate extends Plugin {
 	settings: IOTOUpdateSettings;
-
+	userSyncSettingAirtableIds: AirtableIds | null;
 	async onload() {
 		await this.loadSettings();
+
+		this.userSyncSettingAirtableIds = this.extractAirtableIds(
+			this.settings.userSyncSettingUrl
+		);
 
 		// 优化后的 addCommand 方法，减少重复代码，提升可维护性
 		const createNocoDBCommand = (
@@ -94,7 +109,9 @@ export default class IOTOUpdate extends Plugin {
 				baseID?: string;
 				tableID?: string;
 			},
-			reloadOB: boolean = false
+			reloadOB: boolean = false,
+			iotoUpdate: boolean = true,
+			apiKey: string = this.settings.updateAPIKey
 		) => {
 			this.addCommand({
 				id,
@@ -118,7 +135,7 @@ export default class IOTOUpdate extends Plugin {
 						await this.getUpdateIDs();
 					}
 					const nocoDBSettings = {
-						apiKey: this.settings.updateAPIKey,
+						apiKey: apiKey,
 						tables: [tableConfig],
 					};
 					const myNocoDB = new MyNocoDB(nocoDBSettings);
@@ -183,6 +200,20 @@ export default class IOTOUpdate extends Plugin {
 			true
 		);
 
+		createNocoDBCommand(
+			"ioto-update-get-user-sync-scripts",
+			t("Get Your Personal Sync Templates"),
+			{
+				baseID: this.userSyncSettingAirtableIds?.baseId || "",
+				tableID: this.userSyncSettingAirtableIds?.tableId || "",
+				viewID: this.userSyncSettingAirtableIds?.viewId || "",
+				targetFolderPath: this.settings.userSyncScriptsFolder,
+			},
+			false,
+			false,
+			this.settings.userAPIKey
+		);
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new IOTOUpdateSettingTab(this.app, this));
 	}
@@ -226,6 +257,23 @@ export default class IOTOUpdate extends Plugin {
 		return emailRegex.test(email);
 	}
 
+	extractAirtableIds(url: string): AirtableIds | null {
+		// Regular expression to match Airtable URL pattern
+		const regex =
+			/https?:\/\/airtable\.com\/(app[^\/]+)\/(tbl[^\/]+)(?:\/(viw[^\/?]+))?/;
+		const match = url.match(regex);
+
+		if (!match) {
+			return null;
+		}
+
+		return {
+			baseId: match[1] || "",
+			tableId: match[2] || "",
+			viewId: match[3] || "",
+		};
+	}
+
 	async getUpdateIDs() {
 		const userEmail = this.settings.userEmail.trim();
 		const getUpdateIDsUrl = `https://api.airtable.com/v0/appxQqkHaEkjUQnBf/EmailSync?maxRecords=3&view=Grid%20view&filterByFormula=${encodeURI(
@@ -265,6 +313,11 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
+		containerEl.createEl("h2", {
+			text: t("Main Setting"),
+			cls: "my-plugin-title", // 添加自定义CSS类
+		});
+
 		new Setting(containerEl)
 			.setName(t("Your Update API Key"))
 			.setDesc(t("Please enter your update API Key"))
@@ -302,6 +355,52 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.iotoFrameworkPath)
 					.onChange(async (value) => {
 						this.plugin.settings.iotoFrameworkPath = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		containerEl.createEl("h2", {
+			text: t("User Setting"),
+			cls: "my-plugin-title", // 添加自定义CSS类
+		});
+
+		new Setting(containerEl)
+			.setName(t("Your Airtable Personal Token"))
+			.setDesc(t("Please enter your Airtable Personal Token"))
+			.addText((text) =>
+				text
+					.setPlaceholder(t("Enter your Airtable Personal Token"))
+					.setValue(this.plugin.settings.userAPIKey)
+					.onChange(async (value) => {
+						this.plugin.settings.userAPIKey = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName(t("Your Sync Setting URL"))
+			.setDesc(t("Please enter the url of your sync setting table"))
+			.addText((text) =>
+				text
+					.setPlaceholder(t("Enter the url"))
+					.setValue(this.plugin.settings.userSyncSettingUrl)
+					.onChange(async (value) => {
+						this.plugin.settings.userSyncSettingUrl = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName(t("Your Sync Templates Folder"))
+			.setDesc(t("Please enter the path to your sync templates folder"))
+			.addText((text) =>
+				text
+					.setPlaceholder(
+						t("Enter the path to your sync templates folder")
+					)
+					.setValue(this.plugin.settings.userSyncScriptsFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.userSyncScriptsFolder = value;
 						await this.plugin.saveSettings();
 					})
 			);
