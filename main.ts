@@ -8,6 +8,15 @@ import {
 } from "obsidian";
 import { t } from "./lang/helpers";
 
+// 扩展 App 类型以包含 commands 属性
+declare module "obsidian" {
+	interface App {
+		commands: {
+			executeCommandById(id: string): void;
+		};
+	}
+}
+
 interface AirtableIds {
 	baseId: string;
 	tableId: string;
@@ -142,10 +151,11 @@ export default class IOTOUpdate extends Plugin {
 					const nocoDBSync = new NocoDBSync(myNocoDB, this.app);
 					const myObsidian = new MyObsidian(this.app, nocoDBSync);
 					await myObsidian.onlyFetchFromNocoDB(
-						nocoDBSettings.tables[0]
+						nocoDBSettings.tables[0],
+						iotoUpdate
 					);
 					if (reloadOB) {
-						this.app.workspace.trigger("app:reload");
+						this.app.commands.executeCommandById("app:reload");
 					}
 				},
 			});
@@ -455,26 +465,29 @@ class MyObsidian {
 	}
 
 	async onlyFetchFromNocoDB(
-		sourceTable: NocoDBTable
+		sourceTable: NocoDBTable,
+		iotoUpdate: boolean = true
 	): Promise<string | undefined> {
-		const updateNotice = new Notice(
-			this.buildFragment(
-				t("Updating, plese wait for a moment"),
-				"#00ff00"
-			),
-			0
-		);
-		const apiKeyValid = await this.nocoDBSyncer.checkApiKey();
-		updateNotice.hide();
-		if (!apiKeyValid) {
-			new Notice(
+		if (iotoUpdate) {
+			const updateNotice = new Notice(
 				this.buildFragment(
-					t("Your API Key was expired. Please get a new one."),
-					"#ff0000"
+					t("Updating, plese wait for a moment"),
+					"#00ff00"
 				),
-				4000
+				0
 			);
-			return;
+			const apiKeyValid = await this.nocoDBSyncer.checkApiKey();
+			updateNotice.hide();
+			if (!apiKeyValid) {
+				new Notice(
+					this.buildFragment(
+						t("Your API Key was expired. Please get a new one."),
+						"#ff0000"
+					),
+					4000
+				);
+				return;
+			}
 		}
 
 		await this.nocoDBSyncer.createOrUpdateNotesInOBFromSourceTable(
