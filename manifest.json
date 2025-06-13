@@ -1,11 +1,11 @@
 {
 	"id": "ioto-update",
 	"name": "IOTO Update",
-	"version": "1.0.0",
+	"version": "1.9.0",
 	"minAppVersion": "0.15.0",
 	"description": "Plugin for IOTO Update",
 	"author": "Johnny",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"authorUrl": "https://github.com/shawndotty/ioto-update",
+	"fundingUrl": "https://space.bilibili.com/432408734",
 	"isDesktopOnly": false
 }
