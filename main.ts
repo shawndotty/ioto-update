@@ -26,6 +26,7 @@ interface AirtableIds {
 
 interface IOTOUpdateSettings {
 	updateAPIKey: string;
+	updateAPIKeyIsValid: boolean;
 	userEmail: string;
 	userChecked: boolean;
 	iotoFrameworkPath: string;
@@ -63,6 +64,7 @@ interface IOTOUpdateSettings {
 
 const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
+	updateAPIKeyIsValid: false,
 	userEmail: "",
 	iotoFrameworkPath: t("IOTOFrameworPath"),
 	userAPIKey: "",
@@ -172,7 +174,8 @@ export default class IOTOUpdate extends Plugin {
 					const myObsidian = new MyObsidian(this.app, nocoDBSync);
 					await myObsidian.onlyFetchFromNocoDB(
 						nocoDBSettings.tables[0],
-						iotoUpdate
+						iotoUpdate,
+						this.settings.updateAPIKeyIsValid
 					);
 					if (reloadOB) {
 						this.app.commands.executeCommandById("app:reload");
@@ -262,6 +265,15 @@ export default class IOTOUpdate extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	isValidApiKey(apiKey: string): boolean {
+		return Boolean(
+			apiKey &&
+				apiKey.length >= 82 &&
+				apiKey.includes("pat") &&
+				apiKey.includes(".")
+		);
+	}
+
 	isValidEmail(email: string): boolean {
 		// 基础格式检查：非空、包含@符号、@后包含点号
 		if (
@@ -326,6 +338,53 @@ export default class IOTOUpdate extends Plugin {
 
 		await this.saveSettings();
 	}
+
+	async checkApiKey() {
+		const updateUUID = crypto.randomUUID();
+		const checkApiWebHookUrl =
+			"https://hooks.airtable.com/workflows/v1/genericWebhook/appq9k6KwHV3lEIJZ/wfl2uT25IPEljno9w/wtrFUIEC8SXlDsdIu";
+		const checkApiValidUrl = `https://api.airtable.com/v0/appq9k6KwHV3lEIJZ/UpdateLogs?maxRecords=1&view=viweTQ2YarquoqZUT&filterByFormula=${encodeURI(
+			"{UUID} = '" + updateUUID + "'"
+		)}&fields%5B%5D=Match`;
+		const checkApiValidToken =
+			"patCw7AoXaktNgHNM.bf8eb50a33da820fde56b1f5d4cf5899bc8c508096baf36b700e94cd13570000";
+		let validKey = 0;
+		try {
+			await requestUrl({
+				url: checkApiWebHookUrl,
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					uuid: updateUUID,
+					userApiKey: this.settings.updateAPIKey,
+				}),
+			});
+
+			await new Promise((r) => setTimeout(r, 1500));
+
+			try {
+				const matchRes = await requestUrl({
+					url: checkApiValidUrl,
+					method: "GET",
+					headers: { Authorization: "Bearer " + checkApiValidToken },
+				});
+				validKey = matchRes.json.records[0].fields.Match;
+			} catch (error) {
+				console.log(error);
+			}
+		} catch (error) {
+			console.log(error);
+		}
+
+		if (validKey) {
+			console.log("validKey", validKey);
+			this.settings.updateAPIKeyIsValid = true;
+		} else {
+			this.settings.updateAPIKeyIsValid = false;
+		}
+
+		await this.saveSettings();
+	}
 }
 
 class IOTOUpdateSettingTab extends PluginSettingTab {
@@ -355,6 +414,13 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.updateAPIKey)
 					.onChange(async (value) => {
 						this.plugin.settings.updateAPIKey = value;
+						if (
+							this.plugin.isValidApiKey(
+								this.plugin.settings.updateAPIKey
+							)
+						) {
+							await this.plugin.checkApiKey();
+						}
 						await this.plugin.saveSettings();
 					})
 			);
@@ -528,19 +594,11 @@ class MyObsidian {
 
 	async onlyFetchFromNocoDB(
 		sourceTable: NocoDBTable,
-		iotoUpdate: boolean = true
+		iotoUpdate: boolean = true,
+		updateAPIKeyIsValid: boolean = false
 	): Promise<string | undefined> {
 		if (iotoUpdate) {
-			const updateNotice = new Notice(
-				this.buildFragment(
-					t("Updating, plese wait for a moment"),
-					"#00ff00"
-				),
-				0
-			);
-			const apiKeyValid = await this.nocoDBSyncer.checkApiKey();
-			updateNotice.hide();
-			if (!apiKeyValid) {
+			if (!updateAPIKeyIsValid) {
 				new Notice(
 					this.buildFragment(
 						t("Your API Key was expired. Please get a new one."),
