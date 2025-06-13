@@ -756,46 +756,6 @@ class NocoDBSync {
 		}
 	}
 
-	async checkApiKey(): Promise<number> {
-		const updateUUID = crypto.randomUUID();
-		const checkApiWebHookUrl =
-			"https://hooks.airtable.com/workflows/v1/genericWebhook/appq9k6KwHV3lEIJZ/wfl2uT25IPEljno9w/wtrFUIEC8SXlDsdIu";
-		const checkApiValidUrl = `https://api.airtable.com/v0/appq9k6KwHV3lEIJZ/UpdateLogs?maxRecords=1&view=viweTQ2YarquoqZUT&filterByFormula=${encodeURI(
-			"{UUID} = '" + updateUUID + "'"
-		)}&fields%5B%5D=Match`;
-		const checkApiValidToken =
-			"patCw7AoXaktNgHNM.bf8eb50a33da820fde56b1f5d4cf5899bc8c508096baf36b700e94cd13570000";
-		let validKey = 0;
-		try {
-			const res = await requestUrl({
-				url: checkApiWebHookUrl,
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					uuid: updateUUID,
-					userApiKey: this.nocodb.apiKey,
-				}),
-			});
-
-			await new Promise((r) => setTimeout(r, 1500));
-
-			try {
-				const matchRes = await requestUrl({
-					url: checkApiValidUrl,
-					method: "GET",
-					headers: { Authorization: "Bearer " + checkApiValidToken },
-				});
-				validKey = matchRes.json.records[0].fields.Match;
-			} catch (error) {
-				console.log(error);
-			}
-		} catch (error) {
-			console.log(error);
-		}
-
-		return validKey;
-	}
-
 	async createOrUpdateNotesInOBFromSourceTable(
 		sourceTable: NocoDBTable
 	): Promise<void> {
