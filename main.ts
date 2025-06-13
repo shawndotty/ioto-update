@@ -14,6 +14,11 @@ declare module "obsidian" {
 		commands: {
 			executeCommandById(id: string): void;
 		};
+		plugins: {
+			plugins: {
+				[key: string]: any;
+			};
+		};
 	}
 }
 
@@ -254,9 +259,21 @@ export default class IOTOUpdate extends Plugin {
 	onunload() {}
 
 	async loadSettings() {
+		const iotoSettings = this.app.plugins.plugins["ioto-settings"];
+		console.dir(iotoSettings);
+		let pathSettings = {};
+		if (iotoSettings) {
+			const iotoFrameworkPath = iotoSettings.settings.IOTOFrameworkPath;
+			pathSettings = {
+				iotoFrameworkPath: iotoFrameworkPath,
+				userSyncScriptsFolder: `${iotoFrameworkPath}/Templates/Templater/MyIOTO`,
+			};
+		}
+
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
+			pathSettings,
 			await this.loadData()
 		);
 	}
