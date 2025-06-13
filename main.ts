@@ -64,10 +64,10 @@ interface IOTOUpdateSettings {
 const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
 	userEmail: "",
-	iotoFrameworkPath: "",
+	iotoFrameworkPath: "0-辅助/IOTO",
 	userAPIKey: "",
 	userSyncSettingUrl: "",
-	userSyncScriptsFolder: "",
+	userSyncScriptsFolder: "0-辅助/IOTO/Templates/Templater/MyIOTO/同步模板",
 	userChecked: false,
 	updateIDs: {
 		iotoCore: {
@@ -126,23 +126,43 @@ export default class IOTOUpdate extends Plugin {
 				id,
 				name,
 				callback: async () => {
-					if (!this.settings.updateAPIKey) {
-						new Notice(
-							t("You must provide an API Key to run this command")
-						);
-						return;
+					if (iotoUpdate) {
+						if (!this.settings.updateAPIKey) {
+							new Notice(
+								t(
+									"You must provide an API Key to run this command"
+								)
+							);
+							return;
+						}
+						if (!this.settings.userEmail) {
+							new Notice(
+								t(
+									"You need to provide the email for your account to run this command"
+								)
+							);
+							return;
+						}
+					} else {
+						if (!this.settings.userAPIKey) {
+							new Notice(
+								t(
+									"You must provide an API Key to run this command"
+								)
+							);
+							return;
+						}
+
+						if (!this.settings.userSyncSettingUrl) {
+							new Notice(
+								t(
+									"You need to provide the airtable url for your sync setting table to run this command"
+								)
+							);
+							return;
+						}
 					}
-					if (!this.settings.userEmail) {
-						new Notice(
-							t(
-								"You need to provide the email for your account to run this command"
-							)
-						);
-						return;
-					}
-					if (!this.settings.userChecked) {
-						await this.getUpdateIDs();
-					}
+
 					const nocoDBSettings = {
 						apiKey: apiKey,
 						tables: [tableConfig],
@@ -236,14 +256,6 @@ export default class IOTOUpdate extends Plugin {
 			DEFAULT_SETTINGS,
 			await this.loadData()
 		);
-
-		if (
-			!this.settings.userChecked &&
-			this.settings.userEmail &&
-			this.isValidEmail(this.settings.userEmail)
-		) {
-			await this.getUpdateIDs();
-		}
 	}
 
 	async saveSettings() {
@@ -298,7 +310,11 @@ export default class IOTOUpdate extends Plugin {
 			headers: { Authorization: "Bearer " + getUpdateIDsToken },
 		});
 
-		if (response.json.records.length) {
+		if (
+			response.json.records.length &&
+			response.json.records[0].fields.IOTOUpdateIDs
+		) {
+			console.log("done");
 			this.settings.updateIDs = JSON.parse(
 				response.json.records[0].fields.IOTOUpdateIDs.first()
 			);
@@ -307,6 +323,8 @@ export default class IOTOUpdate extends Plugin {
 			this.settings.updateIDs = DEFAULT_SETTINGS.updateIDs;
 			this.settings.userChecked = DEFAULT_SETTINGS.userChecked;
 		}
+
+		await this.saveSettings();
 	}
 }
 
@@ -324,7 +342,7 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl("h2", {
-			text: t("Main Setting"),
+			text: t("IOTO Update Settings"),
 			cls: "my-plugin-title", // 添加自定义CSS类
 		});
 
@@ -352,6 +370,13 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.userEmail)
 					.onChange(async (value) => {
 						this.plugin.settings.userEmail = value;
+						if (
+							this.plugin.isValidEmail(
+								this.plugin.settings.userEmail
+							)
+						) {
+							await this.plugin.getUpdateIDs();
+						}
 						await this.plugin.saveSettings();
 					})
 			);
@@ -370,7 +395,7 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 			);
 
 		containerEl.createEl("h2", {
-			text: t("User Setting"),
+			text: t("User Sync Scripts Update Settings"),
 			cls: "my-plugin-title", // 添加自定义CSS类
 		});
 
@@ -414,6 +439,15 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		containerEl.createEl("hr");
+
+		containerEl.createEl("p", {
+			text: t(
+				"You need to provide the airtable url for your sync setting table to run this command"
+			),
+			cls: "my-plugin-desc", // 添加自定义CSS类
+		});
 	}
 }
 
