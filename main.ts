@@ -279,7 +279,8 @@ export default class IOTOUpdate extends Plugin {
 		if (
 			!email ||
 			email.indexOf("@") === -1 ||
-			email.indexOf(".", email.indexOf("@")) === -1
+			email.indexOf(".", email.indexOf("@")) === -1 ||
+			email.length < 10
 		) {
 			return false;
 		}
@@ -428,7 +429,9 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName(t("Your Email Address"))
 			.setDesc(
-				t("Please enter your Email when you purchase this product")
+				t(
+					"Please enter the email you provided when you purchase this product"
+				)
 			)
 			.addText((text) =>
 				text

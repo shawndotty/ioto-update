@@ -23,7 +23,7 @@ export default {
 	"files needed to be processed.": "需要处理的文件。",
 	"All Finished.": "全部完成。",
 	"Your Email Address": "你的电子邮件地址",
-	"Please enter your Email when you purchase this product":
+	"Please enter the email you provided when you purchase this product":
 		"购买此产品时请输入您的电子邮件地址。",
 	"Enter your email": "输入你的电子邮件",
 	"IOTO Framework Path": "IOTO框架路径",

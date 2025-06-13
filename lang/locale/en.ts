@@ -26,8 +26,8 @@ export default {
 	"files needed to be processed.": "files needed to be processed.",
 	"All Finished.": "All Finished.",
 	"Your Email Address": "Your Email Address",
-	"Please enter your Email when you purchase this product":
-		"Please enter your Email when you purchase this product",
+	"Please enter the email you provided when you purchase this product":
+		"Please enter the email you provided when you purchase this product",
 	"Enter your email": "Enter your email",
 	"IOTO Framework Path": "IOTO Framework Path",
 	"Please enter the path to your IOTO Framework":
