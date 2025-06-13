@@ -46,4 +46,14 @@ export default {
 	"Get Your Personal Sync Templates": "获取您的个人同步模板",
 	"You need to provide the airtable url for your sync setting table to run this command":
 		"你需要提供你的同步设置表的网址来运行此命令",
+	"When you use the sync with online database feature of IOTO, the sync configration generater I built could help you a lot.":
+		"当你使用IOTO中提供的与在线数据库同步的功能时，我开发的同步配置生成器，可以很好地帮到你。",
+	"You can use the following link to open the shared base and save it to your own Airtable workspace.":
+		"你可以通过下面的链接打开这个生成器的分享链接，并把它保存到你自己的Airtable工作区中。",
+	"Sync Configration Generator": "同步配置生成器",
+	"You can watch the follow video to find out how to use this sync configration base.":
+		"你可以通过观看下面的视频去学习如何使用这个同步配置生成器。",
+	"How to use the sync configration generator": "同步配置生成器用法演示",
+	IOTOFrameworPath: "0-辅助/IOTO",
+	UserSyncTemplatesPath: "0-辅助/IOTO/Templates/Templater/MyIOTO/同步模板",
 };

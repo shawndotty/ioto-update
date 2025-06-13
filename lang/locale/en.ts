@@ -52,4 +52,16 @@ export default {
 	"Get Your Personal Sync Templates": "Get Your Personal Sync Templates",
 	"You need to provide the airtable url for your sync setting table to run this command":
 		"You need to provide the airtable url for your sync setting table to run this command",
+	"When you use the sync with online database feature of IOTO, the sync configration generater I built could help you a lot.":
+		"When you use the sync with online database feature of IOTO, the sync configration generater I built could help you a lot.",
+	"You can use the following link to open the shared base and save it to your own Airtable workspace.":
+		"You can use the following link to open the shared base and save it to your own Airtable workspace.",
+	"Sync Configration Generator": "Sync Configration Generator",
+	"You can watch the follow video to find out how to use this sync configration base.":
+		"You can watch the follow video to find out how to use this sync configration base.",
+	"How to use the sync configration generator":
+		"How to use the sync configration generator",
+	IOTOFrameworPath: "0-Extras/IOTO",
+	UserSyncTemplatesPath:
+		"0-Extras/IOTO/Templates/Templater/MyIOTO/SyncTemplates",
 };

@@ -64,10 +64,10 @@ interface IOTOUpdateSettings {
 const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
 	userEmail: "",
-	iotoFrameworkPath: "0-辅助/IOTO",
+	iotoFrameworkPath: t("IOTOFrameworPath"),
 	userAPIKey: "",
 	userSyncSettingUrl: "",
-	userSyncScriptsFolder: "0-辅助/IOTO/Templates/Templater/MyIOTO/同步模板",
+	userSyncScriptsFolder: t("UserSyncTemplatesPath"),
 	userChecked: false,
 	updateIDs: {
 		iotoCore: {
@@ -442,12 +442,40 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		containerEl.createEl("hr");
 
-		containerEl.createEl("p", {
+		const infoContainer = containerEl.createDiv();
+
+		infoContainer.createEl("p", {
 			text: t(
-				"You need to provide the airtable url for your sync setting table to run this command"
+				"When you use the sync with online database feature of IOTO, the sync configration generater I built could help you a lot."
 			),
-			cls: "my-plugin-desc", // 添加自定义CSS类
 		});
+
+		infoContainer.createEl("p", {
+			text: t(
+				"You can use the following link to open the shared base and save it to your own Airtable workspace."
+			),
+		});
+
+		const baseLink = infoContainer.createEl("a", {
+			text: t("Sync Configration Generator"),
+			href: "https://airtable.com/appekNvvdLY7J8zsq/shrpqtEGVjz8bgw9N",
+		});
+		baseLink.setAttr("target", "_blank");
+		baseLink.setAttr("rel", "noopener noreferrer");
+
+		infoContainer.createEl("p", {
+			text: t(
+				"You can watch the follow video to find out how to use this sync configration base."
+			),
+		});
+
+		const deomLink = infoContainer.createEl("a", {
+			text: t("How to use the sync configration generator"),
+			href: "",
+		});
+
+		deomLink.setAttr("target", "_blank");
+		deomLink.setAttr("rel", "noopener noreferrer");
 	}
 }
 
