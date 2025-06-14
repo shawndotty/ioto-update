@@ -64,4 +64,13 @@ export default {
 	IOTOFrameworPath: "0-Extras/IOTO",
 	UserSyncTemplatesPath:
 		"0-Extras/IOTO/Templates/Templater/MyIOTO/SyncTemplates",
+	Executing: "Executing",
+	completed: "completed",
+	failed: "failed",
+	"Deploy IOTO With One Click": "Deploy IOTO With One Click",
+	"Get IOTO Framework Setting Plugin": "Get IOTO Framework Setting Plugin",
+	"Get CSS Snippets": "Get CSS Snippets",
+	"Get Core Files": "Get Core Files",
+	"Get MYIOTO Templates": "Get MYIOTO Templates",
+	"Get Help Docs": "Get Help Docs",
 };

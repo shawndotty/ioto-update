@@ -56,4 +56,13 @@ export default {
 	"How to use the sync configration generator": "同步配置生成器用法示範",
 	IOTOFrameworPath: "0-輔助/IOTO",
 	UserSyncTemplatesPath: "0-輔助/IOTO/Templates/Templater/MyIOTO/同步模板",
+	Executing: "正在執行",
+	completed: "完成",
+	failed: "失敗",
+	"Deploy IOTO With One Click": "一鍵部署IOTO",
+	"Get IOTO Framework Setting Plugin": "獲取IOTO框架設定插件",
+	"Get CSS Snippets": "獲取CSS代碼片段",
+	"Get Core Files": "獲取核心文件",
+	"Get MYIOTO Templates": "獲取MYIOTO模板",
+	"Get Help Docs": "獲取幫助文件",
 };

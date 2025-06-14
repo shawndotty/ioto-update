@@ -4,6 +4,8 @@ import {
 	normalizePath,
 	Plugin,
 	PluginSettingTab,
+	FuzzySuggestModal,
+	FuzzyMatch,
 	Setting,
 } from "obsidian";
 import { t } from "./lang/helpers";
@@ -27,7 +29,6 @@ interface AirtableIds {
 	tableId: string;
 	viewId: string;
 }
-// Remember to rename these classes and interfaces!
 
 interface IOTOUpdateSettings {
 	updateAPIKey: string;
@@ -115,6 +116,46 @@ export default class IOTOUpdate extends Plugin {
 			this.settings.userSyncSettingUrl
 		);
 
+		// 定义所有 tableConfig 配置
+		const tableConfigs = {
+			coreFiles: {
+				baseID: this.settings.updateIDs.iotoCore.baseID,
+				tableID: this.settings.updateIDs.iotoCore.tableID,
+				viewID: this.settings.updateIDs.iotoCore.viewID,
+				targetFolderPath: this.settings.iotoFrameworkPath,
+			},
+			helpDocs: {
+				baseID: this.settings.updateIDs.iotoHelpDocs.baseID,
+				tableID: this.settings.updateIDs.iotoHelpDocs.tableID,
+				viewID: this.settings.updateIDs.iotoHelpDocs.viewID,
+				targetFolderPath: this.settings.iotoFrameworkPath,
+			},
+			myIoto: {
+				baseID: this.settings.updateIDs.myIotoFull.baseID,
+				tableID: this.settings.updateIDs.myIotoFull.tableID,
+				viewID: this.settings.updateIDs.myIotoFull.viewID,
+				targetFolderPath: this.settings.iotoFrameworkPath,
+			},
+			cssSnippets: {
+				baseID: this.settings.updateIDs.iotoCssSnippets.baseID,
+				tableID: this.settings.updateIDs.iotoCssSnippets.tableID,
+				viewID: this.settings.updateIDs.iotoCssSnippets.viewID,
+				targetFolderPath: `${this.app.vault.configDir}`,
+			},
+			settingPlugin: {
+				baseID: this.settings.updateIDs.iotoSettingPlugin.baseID,
+				tableID: this.settings.updateIDs.iotoSettingPlugin.tableID,
+				viewID: this.settings.updateIDs.iotoSettingPlugin.viewID,
+				targetFolderPath: `${this.app.vault.configDir}`,
+			},
+			userSyncScripts: {
+				baseID: this.userSyncSettingAirtableIds?.baseId || "",
+				tableID: this.userSyncSettingAirtableIds?.tableId || "",
+				viewID: this.userSyncSettingAirtableIds?.viewId || "",
+				targetFolderPath: this.settings.userSyncScriptsFolder,
+			},
+		};
+
 		// 优化后的 addCommand 方法，减少重复代码，提升可维护性
 		const createNocoDBCommand = (
 			id: string,
@@ -127,60 +168,18 @@ export default class IOTOUpdate extends Plugin {
 			},
 			reloadOB: boolean = false,
 			iotoUpdate: boolean = true,
+			filterRecordsByDate: boolean = false,
 			apiKey: string = this.settings.updateAPIKey
 		) => {
 			this.addCommand({
 				id,
 				name,
 				callback: async () => {
-					if (iotoUpdate) {
-						if (!this.settings.updateAPIKey) {
-							new Notice(
-								t(
-									"You must provide an API Key to run this command"
-								)
-							);
-							return;
-						}
-						if (!this.settings.userEmail) {
-							new Notice(
-								t(
-									"You need to provide the email for your account to run this command"
-								)
-							);
-							return;
-						}
-					} else {
-						if (!this.settings.userAPIKey) {
-							new Notice(
-								t(
-									"You must provide an API Key to run this command"
-								)
-							);
-							return;
-						}
-
-						if (!this.settings.userSyncSettingUrl) {
-							new Notice(
-								t(
-									"You need to provide the airtable url for your sync setting table to run this command"
-								)
-							);
-							return;
-						}
-					}
-
-					const nocoDBSettings = {
-						apiKey: apiKey,
-						tables: [tableConfig],
-					};
-					const myNocoDB = new MyNocoDB(nocoDBSettings);
-					const nocoDBSync = new NocoDBSync(myNocoDB, this.app);
-					const myObsidian = new MyObsidian(this.app, nocoDBSync);
-					await myObsidian.onlyFetchFromNocoDB(
-						nocoDBSettings.tables[0],
+					await this.executeNocoDBCommand(
+						tableConfig,
 						iotoUpdate,
-						this.settings.updateAPIKeyIsValid
+						filterRecordsByDate,
+						apiKey
 					);
 					if (reloadOB) {
 						this.app.commands.executeCommandById("app:reload");
@@ -189,68 +188,99 @@ export default class IOTOUpdate extends Plugin {
 			});
 		};
 
-		createNocoDBCommand("ioto-update-core", t("Update Core Files"), {
-			baseID: this.settings.updateIDs.iotoCore.baseID,
-			tableID: this.settings.updateIDs.iotoCore.tableID,
-			viewID: this.settings.updateIDs.iotoCore.viewID,
-			targetFolderPath: this.settings.iotoFrameworkPath,
-		});
-
-		createNocoDBCommand("ioto-update-help", t("Update Help Docs"), {
-			baseID: this.settings.updateIDs.iotoHelpDocs.baseID,
-			tableID: this.settings.updateIDs.iotoHelpDocs.tableID,
-			viewID: this.settings.updateIDs.iotoHelpDocs.viewID,
-			targetFolderPath: this.settings.iotoFrameworkPath,
-		});
-
 		createNocoDBCommand(
-			"ioto-update-myioto",
+			"get-core-files",
+			t("Update Core Files"),
+			tableConfigs.coreFiles
+		);
+		createNocoDBCommand(
+			"get-help-doc",
+			t("Update Help Docs"),
+			tableConfigs.helpDocs,
+			false,
+			true,
+			true
+		);
+		createNocoDBCommand(
+			"get-myioto",
 			t("Update MYIOTO Templates"),
-			{
-				baseID: this.settings.updateIDs.myIotoFull.baseID,
-				tableID: this.settings.updateIDs.myIotoFull.tableID,
-				viewID: this.settings.updateIDs.myIotoFull.viewID,
-				targetFolderPath: this.settings.iotoFrameworkPath,
-			}
+			tableConfigs.myIoto
 		);
-
 		createNocoDBCommand(
-			"ioto-update-css",
+			"get-css",
 			t("Update CSS Snippets"),
-			{
-				baseID: this.settings.updateIDs.iotoCssSnippets.baseID,
-				tableID: this.settings.updateIDs.iotoCssSnippets.tableID,
-				viewID: this.settings.updateIDs.iotoCssSnippets.viewID,
-				targetFolderPath: `${this.app.vault.configDir}`,
-			},
+			tableConfigs.cssSnippets,
 			true
 		);
-
 		createNocoDBCommand(
-			"ioto-update-setting-plugin",
+			"get-setting-plugin",
 			t("Update IOTO Framwork Setting Plugin"),
-			{
-				baseID: this.settings.updateIDs.iotoSettingPlugin.baseID,
-				tableID: this.settings.updateIDs.iotoSettingPlugin.tableID,
-				viewID: this.settings.updateIDs.iotoSettingPlugin.viewID,
-				targetFolderPath: `${this.app.vault.configDir}`,
-			},
+			tableConfigs.settingPlugin,
 			true
 		);
-
 		createNocoDBCommand(
-			"ioto-update-get-user-sync-scripts",
+			"get-user-sync-scripts",
 			t("Get Your Personal Sync Templates"),
-			{
-				baseID: this.userSyncSettingAirtableIds?.baseId || "",
-				tableID: this.userSyncSettingAirtableIds?.tableId || "",
-				viewID: this.userSyncSettingAirtableIds?.viewId || "",
-				targetFolderPath: this.settings.userSyncScriptsFolder,
-			},
+			tableConfigs.userSyncScripts,
+			false,
 			false,
 			false,
 			this.settings.userAPIKey
 		);
+
+		this.addCommand({
+			id: "run-all-updates",
+			name: t("Deploy IOTO With One Click"),
+			callback: async () => {
+				const updateTasks = [
+					{
+						id: "ioto-update:get-setting-plugin",
+						name: t("Get IOTO Framework Setting Plugin"),
+						tableConfig: tableConfigs.settingPlugin,
+					},
+					{
+						id: "ioto-update:get-css",
+						name: t("Get CSS Snippets"),
+						tableConfig: tableConfigs.cssSnippets,
+					},
+					{
+						id: "ioto-update:get-core-files",
+						name: t("Get Core Files"),
+						tableConfig: tableConfigs.coreFiles,
+					},
+					{
+						id: "ioto-update:get-myioto",
+						name: t("Get MYIOTO Templates"),
+						tableConfig: tableConfigs.myIoto,
+					},
+					{
+						id: "ioto-update:get-help-doc",
+						name: t("Get Help Docs"),
+						tableConfig: tableConfigs.helpDocs,
+					},
+				];
+
+				let successCount = 0;
+
+				for (const task of updateTasks) {
+					try {
+						new Notice(`${t("Executing")} ${task.name}...`);
+						await this.executeNocoDBCommand(task.tableConfig);
+						await new Promise((resolve) =>
+							setTimeout(resolve, 5000)
+						);
+						new Notice(`${task.name} ${t("completed")}`);
+						successCount++;
+					} catch (error) {
+						new Notice(`${task.name} ${t("failed")}`);
+					}
+				}
+
+				if (successCount === updateTasks.length) {
+					this.app.commands.executeCommandById("app:reload");
+				}
+			},
+		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new IOTOUpdateSettingTab(this.app, this));
@@ -402,6 +432,33 @@ export default class IOTOUpdate extends Plugin {
 		}
 
 		await this.saveSettings();
+	}
+
+	async executeNocoDBCommand(
+		tableConfig: {
+			viewID: string;
+			targetFolderPath: string;
+			baseID?: string;
+			tableID?: string;
+		},
+		iotoUpdate: boolean = true,
+		filterRecordsByDate: boolean = false,
+		apiKey: string = this.settings.updateAPIKey
+	) {
+		const nocoDBSettings: NocoDBSettings = {
+			apiKey: apiKey,
+			tables: [tableConfig],
+			iotoUpdate: iotoUpdate,
+		};
+		const nocoDB = new MyNocoDB(nocoDBSettings);
+		const nocoDBSync = new NocoDBSync(nocoDB, this.app);
+		const myObsidian = new MyObsidian(this.app, nocoDBSync);
+		await myObsidian.onlyFetchFromNocoDB(
+			tableConfig,
+			iotoUpdate,
+			this.settings.updateAPIKeyIsValid,
+			filterRecordsByDate
+		);
 	}
 }
 
@@ -583,6 +640,7 @@ interface NocoDBSettings {
 			content?: string;
 			subFolder?: string;
 			extension?: string;
+			updatedIn?: string;
 		};
 	};
 }
@@ -593,6 +651,7 @@ interface RecordFields {
 	MD?: string;
 	SubFolder?: string;
 	Extension?: string;
+	UpdatedIn?: number;
 }
 
 interface Record {
@@ -615,7 +674,8 @@ class MyObsidian {
 	async onlyFetchFromNocoDB(
 		sourceTable: NocoDBTable,
 		iotoUpdate: boolean = true,
-		updateAPIKeyIsValid: boolean = false
+		updateAPIKeyIsValid: boolean = false,
+		filterRecordsByDate: boolean = false
 	): Promise<string | undefined> {
 		if (iotoUpdate) {
 			if (!updateAPIKeyIsValid) {
@@ -631,7 +691,8 @@ class MyObsidian {
 		}
 
 		await this.nocoDBSyncer.createOrUpdateNotesInOBFromSourceTable(
-			sourceTable
+			sourceTable,
+			filterRecordsByDate
 		);
 	}
 
@@ -661,6 +722,7 @@ class MyNocoDB {
 		content: string;
 		subFolder: string;
 		extension: string;
+		updatedIn: string;
 		[key: string]: string;
 	};
 
@@ -675,6 +737,7 @@ class MyNocoDB {
 				content: "MD",
 				subFolder: "SubFolder",
 				extension: "Extension",
+				updatedIn: "UpdatedIn",
 			},
 			...(nocoDBSettings.syncSettings?.recordFieldsNames || {}),
 		};
@@ -695,6 +758,7 @@ class NocoDBSync {
 	fetchContentFrom: string;
 	subFolder: string;
 	extension: string;
+	updatedIn: string;
 
 	constructor(nocodb: MyNocoDB, app: any) {
 		this.nocodb = nocodb;
@@ -706,6 +770,7 @@ class NocoDBSync {
 		this.fetchContentFrom = this.nocodb.recordFieldsNames.content;
 		this.subFolder = this.nocodb.recordFieldsNames.subFolder;
 		this.extension = this.nocodb.recordFieldsNames.extension;
+		this.updatedIn = this.nocodb.recordFieldsNames.updatedIn;
 	}
 
 	getFetchSourceTable(sourceViewID: string): NocoDBTable | undefined {
@@ -715,19 +780,45 @@ class NocoDBSync {
 			.first();
 	}
 
-	async fetchRecordsFromSource(sourceTable: NocoDBTable): Promise<any[]> {
-		const fields = [
+	async fetchRecordsFromSource(
+		sourceTable: NocoDBTable,
+		filterRecordsByDate: boolean = false
+	): Promise<any[]> {
+		let fields = [
 			this.fetchTitleFrom,
 			this.fetchContentFrom,
 			this.subFolder,
 			this.extension,
 		];
+		let dateFilterOption: DateFilterOption | null = null;
+		let dateFilterFormula = "";
+		if (filterRecordsByDate) {
+			fields.push(this.updatedIn);
+			const suggester = new DateFilterSuggester(this.app);
+			dateFilterOption = await new Promise<DateFilterOption>(
+				(resolve) => {
+					suggester.onChooseItem = (item) => {
+						resolve(item);
+						return item;
+					};
+					suggester.open();
+				}
+			);
+			if (dateFilterOption && dateFilterOption.value !== 99) {
+				const formula = `{UpdatedIn} <= ${dateFilterOption.value}`;
+				dateFilterFormula = `&filterByFormula=${encodeURIComponent(
+					formula
+				)}`;
+			}
+		}
 		let url = `${this.nocodb.makeApiUrl(sourceTable)}?view=${
 			sourceTable.viewID
-		}&${fields
-			.map((f) => `fields%5B%5D=${encodeURIComponent(f)}`)
-			.join("&")}&offset=`;
-
+		}
+		&
+		${fields.map((f) => `fields%5B%5D=${encodeURIComponent(f)}`).join("&")}
+			${dateFilterFormula}
+			&offset=`;
+		new Notice(t("Getting Data ……"));
 		let records = await this.getAllRecordsFromTable(url);
 
 		return records;
@@ -777,16 +868,15 @@ class NocoDBSync {
 	}
 
 	async createOrUpdateNotesInOBFromSourceTable(
-		sourceTable: NocoDBTable
+		sourceTable: NocoDBTable,
+		filterRecordsByDate: boolean = false
 	): Promise<void> {
-		new Notice(t("Getting Data ……"));
-
 		const { vault } = this.app;
 
 		const directoryRootPath = sourceTable.targetFolderPath;
 
 		let notesToCreateOrUpdate: RecordFields[] = (
-			await this.fetchRecordsFromSource(sourceTable)
+			await this.fetchRecordsFromSource(sourceTable, filterRecordsByDate)
 		).map((note: Record) => note.fields);
 
 		new Notice(
@@ -838,5 +928,52 @@ class NocoDBSync {
 				new Notice(t("All Finished."));
 			}
 		}
+	}
+}
+
+// 定义选项接口
+interface DateFilterOption {
+	id: string;
+	name: string;
+	value: number;
+}
+
+class DateFilterSuggester extends FuzzySuggestModal<DateFilterOption> {
+	private options: DateFilterOption[] = [
+		{ id: "day", name: "今天更新的笔记", value: 1 },
+		{ id: "week", name: "过去一周更新的笔记", value: 7 },
+		{
+			id: "twoWeeks",
+			name: "过去两周更新的笔记",
+			value: 14,
+		},
+		{
+			id: "month",
+			name: "过去一个月更新的笔记",
+			value: 30,
+		},
+		{ id: "all", name: "全部笔记", value: 99 },
+	];
+
+	getItems(): DateFilterOption[] {
+		return this.options;
+	}
+
+	getItemText(item: DateFilterOption): string {
+		return item.name;
+	}
+
+	onChooseItem(
+		item: DateFilterOption,
+		evt: MouseEvent | KeyboardEvent
+	): DateFilterOption {
+		return item;
+	}
+
+	renderSuggestion(
+		item: FuzzyMatch<DateFilterOption>,
+		el: HTMLElement
+	): void {
+		el.createEl("div", { text: item.item.name, cls: "suggester-title" });
 	}
 }
