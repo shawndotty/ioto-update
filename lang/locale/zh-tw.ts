@@ -65,4 +65,9 @@ export default {
 	"Get Core Files": "獲取核心文件",
 	"Get MYIOTO Templates": "獲取MYIOTO模板",
 	"Get Help Docs": "獲取幫助文件",
+	"Help documents updated today": "今天更新的幫助文件",
+	"Help documents updated in the past week": "過去一周更新的幫助文件",
+	"Help documents updated in the past two weeks": "過去兩周更新的幫助文件",
+	"Help documents updated in the past month": "過去一個月更新的幫助文件",
+	"All help documents": "全部幫助文件",
 };

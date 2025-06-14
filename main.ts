@@ -182,7 +182,10 @@ export default class IOTOUpdate extends Plugin {
 						apiKey
 					);
 					if (reloadOB) {
-						this.app.commands.executeCommandById("app:reload");
+						setTimeout(() => {
+							this.app.commands.executeCommandById("app:reload");
+						}, 1000);
+						return;
 					}
 				},
 			});
@@ -940,19 +943,23 @@ interface DateFilterOption {
 
 class DateFilterSuggester extends FuzzySuggestModal<DateFilterOption> {
 	private options: DateFilterOption[] = [
-		{ id: "day", name: "今天更新的笔记", value: 1 },
-		{ id: "week", name: "过去一周更新的笔记", value: 7 },
+		{ id: "day", name: t("Help documents updated today"), value: 1 },
+		{
+			id: "week",
+			name: t("Help documents updated in the past week"),
+			value: 7,
+		},
 		{
 			id: "twoWeeks",
-			name: "过去两周更新的笔记",
+			name: t("Help documents updated in the past two weeks"),
 			value: 14,
 		},
 		{
 			id: "month",
-			name: "过去一个月更新的笔记",
+			name: t("Help documents updated in the past month"),
 			value: 30,
 		},
-		{ id: "all", name: "全部笔记", value: 99 },
+		{ id: "all", name: t("All help documents"), value: 99 },
 	];
 
 	getItems(): DateFilterOption[] {
