@@ -165,6 +165,7 @@ export default class IOTOUpdate extends Plugin {
 				targetFolderPath: string;
 				baseID?: string;
 				tableID?: string;
+				intialSetup?: boolean;
 			},
 			reloadOB: boolean = false,
 			iotoUpdate: boolean = true,
@@ -254,7 +255,10 @@ export default class IOTOUpdate extends Plugin {
 					{
 						id: "ioto-update:get-myioto",
 						name: t("Get MYIOTO Templates"),
-						tableConfig: tableConfigs.myIoto,
+						tableConfig: {
+							...tableConfigs.myIoto,
+							intialSetup: true,
+						},
 					},
 					{
 						id: "ioto-update:get-help-doc",
@@ -443,6 +447,7 @@ export default class IOTOUpdate extends Plugin {
 			targetFolderPath: string;
 			baseID?: string;
 			tableID?: string;
+			intialSetup?: boolean;
 		},
 		iotoUpdate: boolean = true,
 		filterRecordsByDate: boolean = false,
@@ -631,6 +636,7 @@ interface NocoDBTable {
 	baseID?: string;
 	tableID?: string;
 	targetFolderPath: string;
+	intialSetup?: boolean;
 }
 
 interface NocoDBSettings {
@@ -881,6 +887,20 @@ class NocoDBSync {
 		let notesToCreateOrUpdate: RecordFields[] = (
 			await this.fetchRecordsFromSource(sourceTable, filterRecordsByDate)
 		).map((note: Record) => note.fields);
+
+		if (sourceTable.intialSetup) {
+			// 处理 SubFolder 中的 MyIOTO 格式
+			notesToCreateOrUpdate = notesToCreateOrUpdate.map((note) => {
+				if (note.SubFolder && note.SubFolder.includes("MyIOTO")) {
+					// 使用正则表达式匹配 MyIOTO-数字-数字-数字 的格式并替换为 MyIOTO
+					note.SubFolder = note.SubFolder.replace(
+						/MyIOTO-\d{1,2}-\d-\d/g,
+						"MyIOTO"
+					);
+				}
+				return note;
+			});
+		}
 
 		new Notice(
 			`${t("There are")} ${notesToCreateOrUpdate.length} ${t(
