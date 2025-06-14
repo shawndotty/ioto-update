@@ -297,7 +297,6 @@ export default class IOTOUpdate extends Plugin {
 
 	async loadSettings() {
 		const iotoSettings = this.app.plugins.plugins["ioto-settings"];
-		console.dir(iotoSettings);
 		let pathSettings = {};
 		if (iotoSettings) {
 			const iotoFrameworkPath = iotoSettings.settings.IOTOFrameworkPath;
@@ -546,7 +545,7 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 			);
 
 		containerEl.createEl("h2", {
-			text: t("User Sync Scripts Update Settings"),
+			text: t("User Sync Configration Update Settings"),
 			cls: "my-plugin-title", // 添加自定义CSS类
 		});
 
@@ -616,13 +615,13 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		infoContainer.createEl("p", {
 			text: t(
-				"You can watch the follow video to find out how to use this sync configration base."
+				"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link."
 			),
 		});
 
 		const deomLink = infoContainer.createEl("a", {
-			text: t("How to use the sync configration generator"),
-			href: "",
+			text: t("IOTO How To Guide"),
+			href: "https://airtable.com/appKL3zMp0cOYFdJk/shrbQQvVwAMI4sI0Y",
 		});
 
 		deomLink.setAttr("target", "_blank");

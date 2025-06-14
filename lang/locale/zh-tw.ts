@@ -24,19 +24,19 @@ export default {
 	"All Finished.": "全部完成。",
 	"Your Email Address": "你的電子郵件地址",
 	"Please enter the email you provided when you purchase this product":
-		"購買此產品時請輸入你的電子郵件地址。",
+		"請輸入您購買此產品時提供的電子郵件地址",
 	"Enter your email": "輸入你的電子郵件",
 	"IOTO Framework Path": "IOTO框架路徑",
 	"Please enter the path to your IOTO Framework": "請輸入你的 IOTO 框架路徑",
 	"Enter the path to your IOTO Framework": "輸入你的IOTO框架路徑",
 	"IOTO Update Settings": "IOTO更新設定",
-	"User Sync Scripts Update Settings": "用戶同步腳本更新設定",
+	"User Sync Configration Update Settings": "用戶同步配置更新設定",
 	"Your Airtable Personal Token": "你的Airtable個人令牌",
 	"Please enter your Airtable Personal Token": "請輸入你的 Airtable 個人令牌",
 	"Enter your Airtable Personal Token": "輸入你的Airtable個人令牌",
 	"Your Sync Setting URL": "你的同步設定網址",
 	"Please enter the url of your sync setting table":
-		"請輸入你的同步設定表的網址。",
+		"請輸入你的同步設定表的網址",
 	"Enter the url": "輸入網址",
 	"Your Sync Templates Folder": "你的同步模板資料夾",
 	"Please enter the path to your sync templates folder":
@@ -70,4 +70,7 @@ export default {
 	"Help documents updated in the past two weeks": "過去兩周更新的幫助文件",
 	"Help documents updated in the past month": "過去一個月更新的幫助文件",
 	"All help documents": "全部幫助文件",
+	"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link.":
+		"為了幫助你學習如何使用IOTO，特別是與線上資料庫同步的功能，我將不斷發布相關教程和視頻到以下鏈接。",
+	"IOTO How To Guide": "IOTO使用教程",
 };

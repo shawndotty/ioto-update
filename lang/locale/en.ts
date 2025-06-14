@@ -35,7 +35,8 @@ export default {
 	"Enter the path to your IOTO Framework":
 		"Enter the path to your IOTO Framework",
 	"IOTO Update Settings": "IOTO Update Settings",
-	"User Sync Scripts Update Settings": "User Sync Scripts Update Settings",
+	"User Sync Configration Update Settings":
+		"User Sync Configration Update Settings",
 	"Your Airtable Personal Token": "Your Airtable Personal Token",
 	"Please enter your Airtable Personal Token":
 		"Please enter your Airtable Personal Token",
@@ -81,4 +82,7 @@ export default {
 	"Help documents updated in the past month":
 		"Help documents updated in the past month",
 	"All help documents": "All help documents",
+	"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link.":
+		"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link.",
+	"IOTO How To Guide": "IOTO How To Guide",
 };
