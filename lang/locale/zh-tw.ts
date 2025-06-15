@@ -73,4 +73,7 @@ export default {
 	"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link.":
 		"為了幫助你學習如何使用IOTO，特別是與線上資料庫同步的功能，我將不斷發布相關教程和視頻到以下鏈接。",
 	"IOTO How To Guide": "IOTO使用教程",
+	"Validating...": "正在驗證...",
+	"Valid API Key": "有效API密鑰",
+	"Valid Email": "有效電子郵件",
 };

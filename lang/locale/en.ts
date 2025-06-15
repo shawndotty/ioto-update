@@ -85,4 +85,7 @@ export default {
 	"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link.":
 		"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link.",
 	"IOTO How To Guide": "IOTO How To Guide",
+	"Validating...": "Validating...",
+	"Valid API Key": "Valid API Key",
+	"Valid Email": "Valid Email",
 };
