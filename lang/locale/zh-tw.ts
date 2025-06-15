@@ -59,7 +59,7 @@ export default {
 	Executing: "正在執行",
 	completed: "完成",
 	failed: "失敗",
-	"Deploy IOTO With One Click": "一鍵部署IOTO",
+	"Deploy IOTO With One Click": "一鍵部署IOTO ⭐",
 	"Get IOTO Framework Setting Plugin": "獲取IOTO框架設定插件",
 	"Get CSS Snippets": "獲取CSS代碼片段",
 	"Get Core Files": "獲取核心文件",
