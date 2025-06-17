@@ -630,6 +630,9 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 							updateValidState(false);
 						}
 						await this.plugin.saveSettings();
+						if (this.plugin.settings.userChecked) {
+							this.app.commands.executeCommandById("app:reload");
+						}
 					});
 			});
 
