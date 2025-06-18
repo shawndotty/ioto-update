@@ -7,6 +7,7 @@ import {
 	FuzzySuggestModal,
 	FuzzyMatch,
 	Setting,
+	moment,
 } from "obsidian";
 import { t } from "./lang/helpers";
 
@@ -450,10 +451,14 @@ export default class IOTOUpdate extends Plugin {
 		filterRecordsByDate: boolean = false,
 		apiKey: string = this.settings.updateAPIKey
 	) {
+		const fieldNames = this.buildFieldNames();
 		const nocoDBSettings: NocoDBSettings = {
 			apiKey: apiKey,
 			tables: [tableConfig],
 			iotoUpdate: iotoUpdate,
+			syncSettings: {
+				recordFieldsNames: fieldNames,
+			},
 		};
 		const nocoDB = new MyNocoDB(nocoDBSettings);
 		const nocoDBSync = new NocoDBSync(nocoDB, this.app);
@@ -464,6 +469,34 @@ export default class IOTOUpdate extends Plugin {
 			this.settings.updateAPIKeyIsValid,
 			filterRecordsByDate
 		);
+	}
+
+	buildFieldNames() {
+		const local = moment.locale();
+		const fieldNames = {
+			zhCN: {
+				title: "Title",
+				subFolder: "SubFolder",
+			},
+			en: {
+				title: "TitleEN",
+				subFolder: "SubFolderEN",
+			},
+			zhTW: {
+				title: "TitleTW",
+				subFolder: "SubFolderTW",
+			},
+		};
+		switch (local) {
+			case "zh-cn":
+				return fieldNames.zhCN;
+			case "en":
+				return fieldNames.en;
+			case "zh-tw":
+				return fieldNames.zhTW;
+			default:
+				return fieldNames.en;
+		}
 	}
 }
 
@@ -900,6 +933,7 @@ class NocoDBSync {
 			this.subFolder,
 			this.extension,
 		];
+		console.dir(fields);
 		let dateFilterOption: DateFilterOption | null = null;
 		let dateFilterFormula = "";
 		if (filterRecordsByDate) {
@@ -931,7 +965,33 @@ class NocoDBSync {
 		new Notice(t("Getting Data ……"));
 		let records = await this.getAllRecordsFromTable(url);
 
-		return records;
+		if (!records || records.length === 0) {
+			//new Notice(t("No records found"));
+			return [];
+		}
+
+		console.dir(records);
+		// 将 records 中的 fields 映射到 mappedRecords 中
+		const mappedRecords = records.map((record) => {
+			const fields = record.fields;
+			const mappedFields: any = {};
+
+			for (const key in fields) {
+				if (key.includes("Title")) {
+					mappedFields.Title = fields[key];
+				} else if (key.includes("SubFolder")) {
+					mappedFields.SubFolder = fields[key];
+				} else {
+					mappedFields[key] = fields[key];
+				}
+			}
+
+			record.fields = mappedFields;
+
+			return record;
+		});
+
+		return mappedRecords;
 	}
 
 	async getAllRecordsFromTable(url: string): Promise<any[]> {
@@ -988,6 +1048,8 @@ class NocoDBSync {
 		let notesToCreateOrUpdate: RecordFields[] = (
 			await this.fetchRecordsFromSource(sourceTable, filterRecordsByDate)
 		).map((note: Record) => note.fields);
+
+		console.dir(notesToCreateOrUpdate);
 
 		if (sourceTable.intialSetup) {
 			// 处理 SubFolder 中的 MyIOTO 格式
