@@ -176,12 +176,27 @@ export default class IOTOUpdate extends Plugin {
 				id,
 				name,
 				callback: async () => {
+					const templaterTrigerAtCreate = this.getTemplaterSetting(
+						"trigger_on_file_creation"
+					);
+					if (templaterTrigerAtCreate) {
+						await this.setTemplaterSetting(
+							"trigger_on_file_creation",
+							false
+						);
+					}
 					await this.executeNocoDBCommand(
 						tableConfig,
 						iotoUpdate,
 						filterRecordsByDate,
 						apiKey
 					);
+					if (templaterTrigerAtCreate) {
+						await this.setTemplaterSetting(
+							"trigger_on_file_creation",
+							true
+						);
+					}
 					if (reloadOB) {
 						setTimeout(() => {
 							this.app.commands.executeCommandById("app:reload");
@@ -269,6 +284,20 @@ export default class IOTOUpdate extends Plugin {
 
 				let successCount = 0;
 
+				const templaterTrigerAtCreate = this.getTemplaterSetting(
+					"trigger_on_file_creation"
+				);
+				if (templaterTrigerAtCreate) {
+					console.log(
+						"templaterTrigerAtCreate",
+						templaterTrigerAtCreate
+					);
+					await this.setTemplaterSetting(
+						"trigger_on_file_creation",
+						false
+					);
+				}
+
 				for (const task of updateTasks) {
 					try {
 						new Notice(`${t("Executing")} ${task.name}...`);
@@ -281,6 +310,13 @@ export default class IOTOUpdate extends Plugin {
 					} catch (error) {
 						new Notice(`${task.name} ${t("failed")}`);
 					}
+				}
+
+				if (templaterTrigerAtCreate) {
+					await this.setTemplaterSetting(
+						"trigger_on_file_creation",
+						true
+					);
 				}
 
 				if (successCount === updateTasks.length) {
@@ -316,6 +352,29 @@ export default class IOTOUpdate extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	private getTemplater() {
+		const templater = this.app.plugins.plugins["templater-obsidian"];
+		this.app.plugins.plugins["templater-obsidian"];
+
+		return templater || null;
+	}
+
+	private getTemplaterSetting(settingName: string) {
+		const templater = this.getTemplater();
+		if (templater) {
+			return templater.settings[settingName];
+		}
+		return null;
+	}
+
+	private async setTemplaterSetting(settingName: string, value: any) {
+		const templater = this.getTemplater();
+		if (templater) {
+			templater.settings[settingName] = value;
+			await templater.save_settings();
+		}
 	}
 
 	isValidApiKey(apiKey: string): boolean {
