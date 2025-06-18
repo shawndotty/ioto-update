@@ -477,14 +477,17 @@ export default class IOTOUpdate extends Plugin {
 			zhCN: {
 				title: "Title",
 				subFolder: "SubFolder",
+				content: "MD",
 			},
 			en: {
 				title: "TitleEN",
 				subFolder: "SubFolderEN",
+				content: "MDEN",
 			},
 			zhTW: {
 				title: "TitleTW",
 				subFolder: "SubFolderTW",
+				content: "MDTW",
 			},
 		};
 		switch (local) {
@@ -791,8 +794,14 @@ interface NocoDBSettings {
 interface RecordFields {
 	[key: string]: any;
 	Title?: string;
+	TitleEN?: string;
+	TitleTW?: string;
 	MD?: string;
+	MDEN?: string;
+	MDTW?: string;
 	SubFolder?: string;
+	SubFolderEN?: string;
+	SubFolderTW?: string;
 	Extension?: string;
 	UpdatedIn?: number;
 }
@@ -981,6 +990,8 @@ class NocoDBSync {
 					mappedFields.Title = fields[key];
 				} else if (key.includes("SubFolder")) {
 					mappedFields.SubFolder = fields[key];
+				} else if (key.includes("MD")) {
+					mappedFields.MD = fields[key];
 				} else {
 					mappedFields[key] = fields[key];
 				}
