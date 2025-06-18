@@ -978,8 +978,6 @@ class NocoDBSync {
 			//new Notice(t("No records found"));
 			return [];
 		}
-
-		console.dir(records);
 		// 将 records 中的 fields 映射到 mappedRecords 中
 		const mappedRecords = records.map((record) => {
 			const fields = record.fields;
