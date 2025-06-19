@@ -1,6 +1,6 @@
 {
 	"name": "ioto-upate",
-	"version": "1.9.1",
+	"version": "1.9.2",
 	"description": "This is a plugin for updating IOTO Framework",
 	"main": "main.js",
 	"scripts": {
