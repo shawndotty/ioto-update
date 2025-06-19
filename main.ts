@@ -171,7 +171,8 @@ export default class IOTOUpdate extends Plugin {
 			reloadOB: boolean = false,
 			iotoUpdate: boolean = true,
 			filterRecordsByDate: boolean = false,
-			apiKey: string = this.settings.updateAPIKey
+			apiKey: string = this.settings.updateAPIKey,
+			forceEnSyncFields: boolean = false
 		) => {
 			this.addCommand({
 				id,
@@ -190,7 +191,8 @@ export default class IOTOUpdate extends Plugin {
 						tableConfig,
 						iotoUpdate,
 						filterRecordsByDate,
-						apiKey
+						apiKey,
+						forceEnSyncFields
 					);
 					if (templaterTrigerAtCreate) {
 						await this.setTemplaterSetting(
@@ -508,9 +510,10 @@ export default class IOTOUpdate extends Plugin {
 		},
 		iotoUpdate: boolean = true,
 		filterRecordsByDate: boolean = false,
-		apiKey: string = this.settings.updateAPIKey
+		apiKey: string = this.settings.updateAPIKey,
+		forceEnSyncFields: boolean = false
 	) {
-		const fieldNames = this.buildFieldNames();
+		const fieldNames = this.buildFieldNames(forceEnSyncFields);
 		const nocoDBSettings: NocoDBSettings = {
 			apiKey: apiKey,
 			tables: [tableConfig],
@@ -530,8 +533,15 @@ export default class IOTOUpdate extends Plugin {
 		);
 	}
 
-	buildFieldNames() {
+	buildFieldNames(forceEnSyncFields: boolean = false) {
 		const local = moment.locale();
+		if (forceEnSyncFields) {
+			return {
+				title: "Title",
+				subFolder: "SubFolder",
+				content: "MD",
+			};
+		}
 		const fieldNames = {
 			zhCN: {
 				title: "Title",
