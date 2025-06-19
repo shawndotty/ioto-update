@@ -247,7 +247,8 @@ export default class IOTOUpdate extends Plugin {
 			false,
 			false,
 			false,
-			this.settings.userAPIKey
+			this.settings.userAPIKey,
+			true
 		);
 
 		this.addCommand({
@@ -511,9 +512,9 @@ export default class IOTOUpdate extends Plugin {
 		iotoUpdate: boolean = true,
 		filterRecordsByDate: boolean = false,
 		apiKey: string = this.settings.updateAPIKey,
-		forceEnSyncFields: boolean = false
+		forceDefaultFetchFields: boolean = false
 	) {
-		const fieldNames = this.buildFieldNames(forceEnSyncFields);
+		const fieldNames = this.buildFieldNames(forceDefaultFetchFields);
 		const nocoDBSettings: NocoDBSettings = {
 			apiKey: apiKey,
 			tables: [tableConfig],
@@ -533,9 +534,9 @@ export default class IOTOUpdate extends Plugin {
 		);
 	}
 
-	buildFieldNames(forceEnSyncFields: boolean = false) {
+	buildFieldNames(forceDefaultFetchFields: boolean = false) {
 		const local = moment.locale();
-		if (forceEnSyncFields) {
+		if (forceDefaultFetchFields) {
 			return {
 				title: "Title",
 				subFolder: "SubFolder",
