@@ -1011,7 +1011,6 @@ class NocoDBSync {
 			this.fetchContentFrom,
 			this.subFolder,
 			this.extension,
-			"Over10KContent",
 		];
 		console.dir(fields);
 		let dateFilterOption: DateFilterOption | null = null;
@@ -1168,9 +1167,6 @@ class NocoDBSync {
 				const notePath = `${folderPath}/${validFileName}.${noteExtension}`;
 				const noteExists = await vault.exists(notePath);
 				let noteContent = note.MD ? note.MD : "";
-				if (note.Over10KContent) {
-					noteContent = noteContent.concat(note.Over10KContent);
-				}
 				if (!noteExists) {
 					await vault.create(notePath, noteContent);
 				} else if (noteExists && notePath.startsWith(".")) {
