@@ -427,7 +427,7 @@ export default class IOTOUpdate extends Plugin {
 
 	async getUpdateIDs() {
 		const userEmail = this.settings.userEmail.trim();
-		const getUpdateIDsUrl = `https://api.airtable.com/v0/appxQqkHaEkjUQnBf/EmailSync?maxRecords=3&view=Grid%20view&filterByFormula=${encodeURI(
+		const getUpdateIDsUrl = `https://api.airtable.com/v0/appxQqkHaEkjUQnBf/EmailSync?maxRecords=1&filterByFormula=${encodeURI(
 			"{Email} = '" + userEmail + "'"
 		)}&fields%5B%5D=IOTOUpdateIDs`;
 		const getUpdateIDsToken =
@@ -730,7 +730,9 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 							)
 						) {
 							updateValidState(false, true); // 显示加载状态
+
 							await this.plugin.getUpdateIDs();
+							console.log("getUpdateIDs");
 							updateValidState(this.plugin.settings.userChecked);
 						} else {
 							updateValidState(false);
