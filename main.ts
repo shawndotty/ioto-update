@@ -732,7 +732,7 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 							updateValidState(false, true); // 显示加载状态
 
 							await this.plugin.getUpdateIDs();
-							console.log("getUpdateIDs");
+
 							updateValidState(this.plugin.settings.userChecked);
 						} else {
 							updateValidState(false);
