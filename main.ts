@@ -378,7 +378,7 @@ export default class IOTOUpdate extends Plugin {
 		if (templater) {
 			templater.settings[settingName] = value;
 			await templater.save_settings();
-			if(settingName === "trigger_on_file_creation"){
+			if (settingName === "trigger_on_file_creation") {
 				await templater.event_handler.update_trigger_file_on_creation();
 			}
 		}
