@@ -11,6 +11,7 @@ import {
 } from "obsidian";
 import { t } from "./lang/helpers";
 
+
 // 扩展 App 类型以包含 commands 属性
 declare module "obsidian" {
 	interface App {
@@ -37,6 +38,7 @@ interface IOTOUpdateSettings {
 	userEmail: string;
 	userChecked: boolean;
 	iotoFrameworkPath: string;
+	iotoFrameworkLanguage: string;
 	userAPIKey: string;
 	userSyncSettingUrl: string;
 	userSyncScriptsFolder: string;
@@ -74,6 +76,7 @@ const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKeyIsValid: false,
 	userEmail: "",
 	iotoFrameworkPath: t("IOTOFrameworPath"),
+	iotoFrameworkLanguage: "auto",
 	userAPIKey: "",
 	userSyncSettingUrl: "",
 	userSyncScriptsFolder: t("UserSyncTemplatesPath"),
@@ -538,7 +541,8 @@ export default class IOTOUpdate extends Plugin {
 	}
 
 	buildFieldNames(forceDefaultFetchFields: boolean = false) {
-		const local = moment.locale();
+		let local = moment.locale();
+		const iotoFrameworkLanguage = this.settings.iotoFrameworkLanguage;
 		if (forceDefaultFetchFields) {
 			return {
 				title: "Title",
@@ -561,18 +565,17 @@ export default class IOTOUpdate extends Plugin {
 				title: "TitleTW",
 				subFolder: "SubFolderTW",
 				content: "MDTW",
-			},
+			}
 		};
-		switch (local) {
-			case "zh-cn":
-				return fieldNames.zhCN;
-			case "en":
-				return fieldNames.en;
-			case "zh-tw":
-				return fieldNames.zhTW;
-			default:
-				return fieldNames.en;
-		}
+		// 根据语言设置返回对应的字段名称
+		const languageKey = iotoFrameworkLanguage === "auto" ? local : iotoFrameworkLanguage;
+		const languageMap: { [key: string]: keyof typeof fieldNames } = {
+			"zh-cn": "zhCN",
+			"en": "en", 
+			"zh-tw": "zhTW"
+		};
+
+		return fieldNames[languageMap[languageKey] || "en"];
 	}
 }
 
@@ -753,6 +756,24 @@ class IOTOUpdateSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.iotoFrameworkPath)
 					.onChange(async (value) => {
 						this.plugin.settings.iotoFrameworkPath = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName(t("IOTO Framework Language"))
+			.setDesc(t("Please choose the language of your IOTO Framework"))
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOptions({
+						auto: t("Obsidian App Language"),
+						en: t("English"),
+						"zh-cn": t("Chinese (Simplified)"),
+						"zh-tw": t("Chinese (Traditional)"),
+					})
+					.setValue(this.plugin.settings.iotoFrameworkLanguage)
+					.onChange(async (value) => {
+						this.plugin.settings.iotoFrameworkLanguage = value;
 						await this.plugin.saveSettings();
 					})
 			);

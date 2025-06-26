@@ -76,4 +76,10 @@ export default {
 	"Validating...": "正在驗證...",
 	"Valid API Key": "有效API密鑰",
 	"Valid Email": "有效電子郵件",
+	"IOTO Framework Language": "IOTO框架語言",
+	"Please choose the language of your IOTO Framework": "請選擇你的IOTO框架語言",
+	"Obsidian App Language": "Obsidian應用語言",
+	"English": "英文",
+	"Chinese (Simplified)": "中文（簡體）",
+	"Chinese (Traditional)": "中文（繁體）",
 };

@@ -88,4 +88,10 @@ export default {
 	"Validating...": "Validating...",
 	"Valid API Key": "Valid API Key",
 	"Valid Email": "Valid Email",
+	"IOTO Framework Language": "IOTO Framework Language",
+	"Please choose the language of your IOTO Framework": "Please choose the language of your IOTO Framework",
+	"Obsidian App Language": "Obsidian App Language",
+	"English": "English",
+	"Chinese (Simplified)": "Chinese (Simplified)",
+	"Chinese (Traditional)": "Chinese (Traditional)",
 };
