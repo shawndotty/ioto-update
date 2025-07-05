@@ -10,7 +10,7 @@ import {
 	DateFilterOption,
 } from "./src/types";
 import { DEFAULT_SETTINGS, IOTOUpdateSettingTab } from "./src/settings";
-import { MyObsidian } from "./MyObsidian";
+import { MyObsidian } from "./src/MyObsidian";
 import { MyNocoDB } from "./src/MyNocoDB";
 import { NocoDBSync } from "./src/NocoDBSync";
 import { ApiService } from "./src/api";
