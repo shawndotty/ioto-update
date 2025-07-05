@@ -1,5 +1,5 @@
 import { Notice, normalizePath, FuzzySuggestModal, FuzzyMatch } from "obsidian";
-import { t } from "./lang/helpers";
+import { t } from "../lang/helpers";
 import { NocoDBTable, RecordFields, Record, DateFilterOption } from "./types";
 import { MyNocoDB } from "./MyNocoDB";
 

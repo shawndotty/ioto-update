@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { t } from "./lang/helpers";
+import { t } from "../lang/helpers";
 import { NocoDBTable } from "./types";
 import { NocoDBSync } from "./NocoDBSync";
 

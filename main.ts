@@ -8,13 +8,13 @@ import {
 	RecordFields,
 	Record,
 	DateFilterOption,
-} from "./types";
-import { DEFAULT_SETTINGS, IOTOUpdateSettingTab } from "./settings";
+} from "./src/types";
+import { DEFAULT_SETTINGS, IOTOUpdateSettingTab } from "./src/settings";
 import { MyObsidian } from "./MyObsidian";
-import { MyNocoDB } from "./MyNocoDB";
-import { NocoDBSync } from "./NocoDBSync";
-import { ApiService } from "./api";
-import { Utils } from "./utils";
+import { MyNocoDB } from "./src/MyNocoDB";
+import { NocoDBSync } from "./src/NocoDBSync";
+import { ApiService } from "./src/api";
+import { Utils } from "./src/utils";
 
 // 扩展 App 类型以包含 commands 属性
 declare module "obsidian" {
