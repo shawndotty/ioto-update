@@ -162,7 +162,7 @@ export class CommandService {
 			name,
 			callback: async () => {
 				const templaterTrigerAtCreate =
-					this.templaterService.getTemplaterSetting(
+					this.templaterService.getPluginSetting(
 						"trigger_on_file_creation"
 					);
 				if (templaterTrigerAtCreate) {
@@ -239,14 +239,10 @@ export class CommandService {
 				let successCount = 0;
 
 				const templaterTrigerAtCreate =
-					this.templaterService.getTemplaterSetting(
+					this.templaterService.getPluginSetting(
 						"trigger_on_file_creation"
 					);
 				if (templaterTrigerAtCreate) {
-					console.log(
-						"templaterTrigerAtCreate",
-						templaterTrigerAtCreate
-					);
 					await this.templaterService.setTemplaterSetting(
 						"trigger_on_file_creation",
 						false

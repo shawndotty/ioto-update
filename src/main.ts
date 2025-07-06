@@ -1,19 +1,26 @@
 import { Plugin } from "obsidian";
 import { IOTOUpdateSettings } from "./types";
-import { IOTOUpdateSettingTab } from "./ui/settings";
-import { DEFAULT_SETTINGS } from "./models/default-settings";
+import { SettingsManager } from "./models/settings";
+import { IOTOUpdateSettingTab } from "./ui/settings-tab";
 import { ApiService } from "./services/api-service";
 import { CommandService } from "./services/command-service";
 import { TemplaterService } from "./services/templater-service";
 
 export default class IOTOUpdate extends Plugin {
 	settings: IOTOUpdateSettings;
+	settingsManager: SettingsManager;
 	public apiService: ApiService;
 	private templaterService: TemplaterService;
 	private commandService: CommandService;
 
 	async onload() {
+		this.settingsManager = new SettingsManager(
+			() => this.loadData(),
+			(data) => this.saveData(data),
+			this.app
+		);
 		await this.loadSettings();
+
 		this.apiService = new ApiService(this.settings);
 		this.templaterService = new TemplaterService(this.app);
 		// 初始化 CommandService
@@ -34,25 +41,11 @@ export default class IOTOUpdate extends Plugin {
 	onunload() {}
 
 	async loadSettings() {
-		const iotoSettings = this.app.plugins.plugins["ioto-settings"];
-		let pathSettings = {};
-		if (iotoSettings) {
-			const iotoFrameworkPath = iotoSettings.settings.IOTOFrameworkPath;
-			pathSettings = {
-				iotoFrameworkPath: iotoFrameworkPath,
-				userSyncScriptsFolder: `${iotoFrameworkPath}/Templates/Templater/MyIOTO`,
-			};
-		}
-
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			pathSettings,
-			await this.loadData()
-		);
+		this.settings = await this.settingsManager.load();
 	}
 
 	async saveSettings() {
-		await this.saveData(this.settings);
+		this.settingsManager.update(this.settings);
+		await this.settingsManager.save();
 	}
 }
