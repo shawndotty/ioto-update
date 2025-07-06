@@ -1,4 +1,4 @@
-import { NocoDBTable, NocoDBSettings } from "../types";
+import { NocoDBTable, NocoDBSettings } from "../../types";
 
 export class NocoDB {
 	apiKey: string;

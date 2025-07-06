@@ -1,23 +1,10 @@
 import { Plugin } from "obsidian";
 import { IOTOUpdateSettings } from "./types";
-import { DEFAULT_SETTINGS, IOTOUpdateSettingTab } from "./ui/settings";
+import { IOTOUpdateSettingTab } from "./ui/settings";
+import { DEFAULT_SETTINGS } from "./models/default-settings";
 import { ApiService } from "./services/api-service";
 import { CommandService } from "./services/command-service";
 import { TemplaterService } from "./services/templater-service";
-
-// 扩展 App 类型以包含 commands 属性
-declare module "obsidian" {
-	interface App {
-		commands: {
-			executeCommandById(id: string): void;
-		};
-		plugins: {
-			plugins: {
-				[key: string]: any;
-			};
-		};
-	}
-}
 
 export default class IOTOUpdate extends Plugin {
 	settings: IOTOUpdateSettings;

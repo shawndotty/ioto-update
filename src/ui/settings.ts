@@ -1,46 +1,7 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting } from "obsidian";
 import { t } from "../lang/helpers";
-import { IOTOUpdateSettings } from "../types";
 import IOTOUpdate from "../main";
-import { Utils } from "../utils/utils";
-
-export const DEFAULT_SETTINGS: IOTOUpdateSettings = {
-	updateAPIKey: "",
-	updateAPIKeyIsValid: false,
-	userEmail: "",
-	iotoFrameworkPath: t("IOTOFrameworPath"),
-	userAPIKey: "",
-	userSyncSettingUrl: "",
-	userSyncScriptsFolder: t("UserSyncTemplatesPath"),
-	userChecked: false,
-	updateIDs: {
-		iotoCore: {
-			baseID: "",
-			tableID: "",
-			viewID: "",
-		},
-		myIotoFull: {
-			baseID: "",
-			tableID: "",
-			viewID: "",
-		},
-		iotoSettingPlugin: {
-			baseID: "",
-			tableID: "",
-			viewID: "",
-		},
-		iotoCssSnippets: {
-			baseID: "",
-			tableID: "",
-			viewID: "",
-		},
-		iotoHelpDocs: {
-			baseID: "",
-			tableID: "",
-			viewID: "",
-		},
-	},
-};
+import { Utils } from "../utils";
 
 export class IOTOUpdateSettingTab extends PluginSettingTab {
 	plugin: IOTOUpdate;

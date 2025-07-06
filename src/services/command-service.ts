@@ -6,10 +6,10 @@ import {
 	NocoDBTable,
 	NocoDBSettings,
 } from "../types";
-import { NocoDB } from "../db-syncer/nocodb";
-import { NocoDBSync } from "../db-syncer/nocodb-sync";
-import { ObsidianSyncer } from "../db-syncer/ob-syncer";
-import { Utils } from "../utils/utils";
+import { NocoDB } from "./db-syncer/nocodb";
+import { NocoDBSync } from "./db-syncer/nocodb-sync";
+import { ObsidianSyncer } from "./db-syncer/ob-syncer";
+import { Utils } from "../utils";
 import { TemplaterService } from "./templater-service";
 
 export class CommandService {

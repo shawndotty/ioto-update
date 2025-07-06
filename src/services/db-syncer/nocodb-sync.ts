@@ -1,6 +1,11 @@
 import { Notice, normalizePath, FuzzySuggestModal, FuzzyMatch } from "obsidian";
-import { t } from "../lang/helpers";
-import { NocoDBTable, RecordFields, Record, DateFilterOption } from "../types";
+import { t } from "../../lang/helpers";
+import {
+	NocoDBTable,
+	RecordFields,
+	Record,
+	DateFilterOption,
+} from "../../types";
 import { NocoDB } from "./nocodb";
 
 declare function requestUrl(options: any): Promise<any>;

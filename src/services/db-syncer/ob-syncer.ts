@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
-import { t } from "../lang/helpers";
-import { NocoDBTable } from "../types";
+import { t } from "../../lang/helpers";
+import { NocoDBTable } from "../../types";
 import { NocoDBSync } from "./nocodb-sync";
 
 export class ObsidianSyncer {
