@@ -5,6 +5,7 @@ import { IOTOUpdateSettingTab } from "./ui/settings-tab";
 import { ApiService } from "./services/api-service";
 import { CommandService } from "./services/command-service";
 import { TemplaterService } from "./services/templater-service";
+import { ServiceContainer } from "./services/service-container";
 
 export default class IOTOUpdate extends Plugin {
 	settings: IOTOUpdateSettings;
@@ -12,24 +13,17 @@ export default class IOTOUpdate extends Plugin {
 	public apiService: ApiService;
 	private templaterService: TemplaterService;
 	private commandService: CommandService;
+	private services: ServiceContainer;
 
 	async onload() {
-		this.settingsManager = new SettingsManager(
-			() => this.loadData(),
-			(data) => this.saveData(data),
-			this.app
-		);
+		this.services = new ServiceContainer(this);
+		this.settingsManager = this.services.settingsManager;
 		await this.loadSettings();
 
-		this.apiService = new ApiService(this.settings);
-		this.templaterService = new TemplaterService(this.app);
+		this.apiService = this.services.apiService;
+		this.templaterService = this.services.templaterService;
 		// 初始化 CommandService
-		this.commandService = new CommandService(
-			this.app,
-			this,
-			this.settings,
-			this.templaterService
-		);
+		this.commandService = this.services.commandService;
 
 		// 注册所有命令
 		this.commandService.registerCommands();

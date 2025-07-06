@@ -1,7 +1,14 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import {
+	App,
+	Notice,
+	PluginSettingTab,
+	Setting,
+	TextComponent,
+} from "obsidian";
 import { t } from "../lang/helpers";
 import IOTOUpdate from "../main";
 import { Utils } from "../utils";
+import { IOTOUpdateSettings } from "../types";
 
 export class IOTOUpdateSettingTab extends PluginSettingTab {
 	plugin: IOTOUpdate;
@@ -11,6 +18,128 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	private createValidatedInputSetting(options: {
+		container: HTMLElement;
+		name: string;
+		desc: string;
+		placeholder: string;
+		settingKey: keyof IOTOUpdateSettings;
+		validationKey: keyof IOTOUpdateSettings;
+		validationFn: (value: string) => boolean;
+		asyncAction: () => Promise<any>;
+		onSuccess: (result: any) => void;
+		validText: string;
+		validClass: string;
+		invalidClass: string;
+	}) {
+		new Setting(options.container)
+			.setName(options.name)
+			.setDesc(options.desc)
+			.addText((text) => {
+				const validSpan = createEl("span", {
+					text: options.validText,
+					cls: "valid-text",
+				});
+				const loadingSpan = createEl("span", {
+					text: t("Validating..."),
+					cls: "loading-text",
+				});
+				validSpan.style.display = "none";
+				loadingSpan.style.display = "none";
+				text.inputEl.parentElement?.insertBefore(
+					validSpan,
+					text.inputEl
+				);
+				text.inputEl.parentElement?.insertBefore(
+					loadingSpan,
+					text.inputEl
+				);
+
+				const updateValidState = (
+					isValid: boolean,
+					isLoading: boolean = false
+				) => {
+					if (isLoading) {
+						text.inputEl.removeClass(options.validClass);
+						text.inputEl.removeClass(options.invalidClass);
+						validSpan.style.display = "none";
+						loadingSpan.style.display = "inline";
+					} else {
+						loadingSpan.style.display = "none";
+						if (isValid) {
+							text.inputEl.removeClass(options.invalidClass);
+							text.inputEl.addClass(options.validClass);
+							text.inputEl.style.borderColor = "#4CAF50";
+							text.inputEl.style.color = "#4CAF50";
+							validSpan.style.display = "inline";
+						} else {
+							text.inputEl.removeClass(options.validClass);
+							text.inputEl.addClass(options.invalidClass);
+							text.inputEl.style.borderColor = "#FF5252";
+							text.inputEl.style.color = "#FF5252";
+							validSpan.style.display = "none";
+						}
+					}
+				};
+
+				// Initial state
+				updateValidState(
+					this.plugin.settings[options.validationKey] as boolean
+				);
+
+				text.setPlaceholder(options.placeholder)
+					.setValue(
+						this.plugin.settings[options.settingKey] as string
+					)
+					.onChange(async (value) => {
+						(this.plugin.settings[options.settingKey] as any) =
+							value;
+						if (options.validationFn(value)) {
+							updateValidState(false, true); // Show loading
+							try {
+								const result = await options.asyncAction();
+								options.onSuccess(result);
+								updateValidState(
+									this.plugin.settings[
+										options.validationKey
+									] as boolean
+								);
+							} catch (error) {
+								new Notice(error.message);
+								updateValidState(false);
+							}
+						} else {
+							updateValidState(false);
+						}
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
+	private createSimpleTextSetting(options: {
+		container: HTMLElement;
+		name: string;
+		desc: string;
+		placeholder: string;
+		settingKey: keyof IOTOUpdateSettings;
+	}) {
+		new Setting(options.container)
+			.setName(options.name)
+			.setDesc(options.desc)
+			.addText((text) =>
+				text
+					.setPlaceholder(options.placeholder)
+					.setValue(
+						this.plugin.settings[options.settingKey] as string
+					)
+					.onChange(async (value) => {
+						(this.plugin.settings[options.settingKey] as any) =
+							value;
+						await this.plugin.saveSettings();
+					})
+			);
+	}
+
 	display(): void {
 		const { containerEl } = this;
 
@@ -18,219 +147,82 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		containerEl.createEl("h2", {
 			text: t("IOTO Update Settings"),
-			cls: "my-plugin-title", // 添加自定义CSS类
+			cls: "my-plugin-title",
 		});
 
-		new Setting(containerEl)
-			.setName(t("Your Update API Key"))
-			.setDesc(t("Please enter your update API Key"))
-			.addText((text) => {
-				const validSpan = createEl("span", {
-					text: t("Valid API Key"),
-					cls: "valid-text",
-				});
-				const loadingSpan = createEl("span", {
-					text: t("Validating..."),
-					cls: "loading-text",
-				});
-				validSpan.style.display = "none";
-				loadingSpan.style.display = "none";
-				text.inputEl.parentElement?.insertBefore(
-					validSpan,
-					text.inputEl
-				);
-				text.inputEl.parentElement?.insertBefore(
-					loadingSpan,
-					text.inputEl
-				);
+		this.createValidatedInputSetting({
+			container: containerEl,
+			name: t("Your Update API Key"),
+			desc: t("Please enter your update API Key"),
+			placeholder: t("Enter your update API Key"),
+			settingKey: "updateAPIKey",
+			validationKey: "updateAPIKeyIsValid",
+			validationFn: Utils.isValidApiKey,
+			asyncAction: () => this.plugin.apiService.checkApiKey(),
+			onSuccess: (isValid) => {
+				this.plugin.settings.updateAPIKeyIsValid = isValid;
+			},
+			validText: t("Valid API Key"),
+			validClass: "valid-api-key",
+			invalidClass: "invalid-api-key",
+		});
 
-				const updateValidState = (
-					isValid: boolean,
-					isLoading: boolean = false
-				) => {
-					if (isLoading) {
-						text.inputEl.removeClass("valid-api-key");
-						text.inputEl.removeClass("invalid-api-key");
-						validSpan.style.display = "none";
-						loadingSpan.style.display = "inline";
-					} else {
-						loadingSpan.style.display = "none";
-						if (isValid) {
-							text.inputEl.removeClass("invalid-api-key");
-							text.inputEl.addClass("valid-api-key");
-							text.inputEl.style.borderColor = "#4CAF50";
-							text.inputEl.style.color = "#4CAF50";
-							validSpan.style.display = "inline";
-						} else {
-							text.inputEl.removeClass("valid-api-key");
-							text.inputEl.addClass("invalid-api-key");
-							text.inputEl.style.borderColor = "#FF5252";
-							text.inputEl.style.color = "#FF5252";
-							validSpan.style.display = "none";
-						}
-					}
-				};
+		this.createValidatedInputSetting({
+			container: containerEl,
+			name: t("Your Email Address"),
+			desc: t(
+				"Please enter the email you provided when you purchase this product"
+			),
+			placeholder: t("Enter your email"),
+			settingKey: "userEmail",
+			validationKey: "userChecked",
+			validationFn: Utils.isValidEmail,
+			asyncAction: () => this.plugin.apiService.getUpdateIDs(),
+			onSuccess: ({ updateIDs, userChecked }) => {
+				this.plugin.settings.updateIDs = updateIDs;
+				this.plugin.settings.userChecked = userChecked;
+			},
+			validText: t("Valid Email"),
+			validClass: "valid-email",
+			invalidClass: "invalid-email",
+		});
 
-				// 初始状态设置
-				updateValidState(this.plugin.settings.updateAPIKeyIsValid);
-
-				return text
-					.setPlaceholder(t("Enter your update API Key"))
-					.setValue(this.plugin.settings.updateAPIKey)
-					.onChange(async (value) => {
-						this.plugin.settings.updateAPIKey = value;
-						if (Utils.isValidApiKey(value)) {
-							updateValidState(false, true); // 显示加载状态
-							const updatedSettings =
-								await this.plugin.apiService.checkApiKey();
-							this.plugin.settings = updatedSettings;
-							updateValidState(
-								this.plugin.settings.updateAPIKeyIsValid
-							);
-						} else {
-							updateValidState(false);
-						}
-						await this.plugin.saveSettings();
-					});
-			});
-
-		new Setting(containerEl)
-			.setName(t("Your Email Address"))
-			.setDesc(
-				t(
-					"Please enter the email you provided when you purchase this product"
-				)
-			)
-			.addText((text) => {
-				const validSpan = createEl("span", {
-					text: t("Valid Email"),
-					cls: "valid-text",
-				});
-				const loadingSpan = createEl("span", {
-					text: t("Validating..."),
-					cls: "loading-text",
-				});
-				validSpan.style.display = "none";
-				loadingSpan.style.display = "none";
-				text.inputEl.parentElement?.insertBefore(
-					validSpan,
-					text.inputEl
-				);
-				text.inputEl.parentElement?.insertBefore(
-					loadingSpan,
-					text.inputEl
-				);
-
-				const updateValidState = (
-					isValid: boolean,
-					isLoading: boolean = false
-				) => {
-					if (isLoading) {
-						text.inputEl.removeClass("valid-email");
-						text.inputEl.removeClass("invalid-email");
-						validSpan.style.display = "none";
-						loadingSpan.style.display = "inline";
-					} else {
-						loadingSpan.style.display = "none";
-						if (isValid) {
-							text.inputEl.removeClass("invalid-email");
-							text.inputEl.addClass("valid-email");
-							text.inputEl.style.borderColor = "#4CAF50";
-							text.inputEl.style.color = "#4CAF50";
-							validSpan.style.display = "inline";
-						} else {
-							text.inputEl.removeClass("valid-email");
-							text.inputEl.addClass("invalid-email");
-							text.inputEl.style.borderColor = "#FF5252";
-							text.inputEl.style.color = "#FF5252";
-							validSpan.style.display = "none";
-						}
-					}
-				};
-
-				// 初始状态设置
-				updateValidState(this.plugin.settings.userChecked);
-
-				return text
-					.setPlaceholder(t("Enter your email"))
-					.setValue(this.plugin.settings.userEmail)
-					.onChange(async (value) => {
-						this.plugin.settings.userEmail = value;
-						if (
-							Utils.isValidEmail(this.plugin.settings.userEmail)
-						) {
-							updateValidState(false, true); // 显示加载状态
-
-							const updatedSettings =
-								await this.plugin.apiService.getUpdateIDs();
-							this.plugin.settings = updatedSettings;
-
-							updateValidState(this.plugin.settings.userChecked);
-						} else {
-							updateValidState(false);
-						}
-						await this.plugin.saveSettings();
-					});
-			});
-
-		new Setting(containerEl)
-			.setName(t("IOTO Framework Path"))
-			.setDesc(t("Please enter the path to your IOTO Framework"))
-			.addText((text) =>
-				text
-					.setPlaceholder(t("Enter the path to your IOTO Framework"))
-					.setValue(this.plugin.settings.iotoFrameworkPath)
-					.onChange(async (value) => {
-						this.plugin.settings.iotoFrameworkPath = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		this.createSimpleTextSetting({
+			container: containerEl,
+			name: t("IOTO Framework Path"),
+			desc: t("Please enter the path to your IOTO Framework"),
+			placeholder: t("Enter the path to your IOTO Framework"),
+			settingKey: "iotoFrameworkPath",
+		});
 
 		containerEl.createEl("h2", {
 			text: t("User Sync Configration Update Settings"),
-			cls: "my-plugin-title", // 添加自定义CSS类
+			cls: "my-plugin-title",
 		});
 
-		new Setting(containerEl)
-			.setName(t("Your Airtable Personal Token"))
-			.setDesc(t("Please enter your Airtable Personal Token"))
-			.addText((text) =>
-				text
-					.setPlaceholder(t("Enter your Airtable Personal Token"))
-					.setValue(this.plugin.settings.userAPIKey)
-					.onChange(async (value) => {
-						this.plugin.settings.userAPIKey = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		this.createSimpleTextSetting({
+			container: containerEl,
+			name: t("Your Airtable Personal Token"),
+			desc: t("Please enter your Airtable Personal Token"),
+			placeholder: t("Enter your Airtable Personal Token"),
+			settingKey: "userAPIKey",
+		});
 
-		new Setting(containerEl)
-			.setName(t("Your Sync Setting URL"))
-			.setDesc(t("Please enter the url of your sync setting table"))
-			.addText((text) =>
-				text
-					.setPlaceholder(t("Enter the url"))
-					.setValue(this.plugin.settings.userSyncSettingUrl)
-					.onChange(async (value) => {
-						this.plugin.settings.userSyncSettingUrl = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		this.createSimpleTextSetting({
+			container: containerEl,
+			name: t("Your Sync Setting URL"),
+			desc: t("Please enter the url of your sync setting table"),
+			placeholder: t("Enter the url"),
+			settingKey: "userSyncSettingUrl",
+		});
 
-		new Setting(containerEl)
-			.setName(t("Your Sync Templates Folder"))
-			.setDesc(t("Please enter the path to your sync templates folder"))
-			.addText((text) =>
-				text
-					.setPlaceholder(
-						t("Enter the path to your sync templates folder")
-					)
-					.setValue(this.plugin.settings.userSyncScriptsFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.userSyncScriptsFolder = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		this.createSimpleTextSetting({
+			container: containerEl,
+			name: t("Your Sync Templates Folder"),
+			desc: t("Please enter the path to your sync templates folder"),
+			placeholder: t("Enter the path to your sync templates folder"),
+			settingKey: "userSyncScriptsFolder",
+		});
 
 		containerEl.createEl("hr");
 

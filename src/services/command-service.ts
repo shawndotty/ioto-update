@@ -1,4 +1,4 @@
-import { App, Notice, Plugin } from "obsidian";
+import { App, Command, Notice } from "obsidian";
 import { t } from "../lang/helpers";
 import {
 	AirtableIds,
@@ -12,21 +12,33 @@ import { ObsidianSyncer } from "./db-syncer/ob-syncer";
 import { Utils } from "../utils";
 import { TemplaterService } from "./templater-service";
 
+interface CommandConfig {
+	id: string;
+	name: string;
+	tableConfig: () => NocoDBTable;
+	reloadOB?: boolean;
+	iotoUpdate?: boolean;
+	filterRecordsByDate?: boolean;
+	apiKey?: () => string;
+	forceEnSyncFields?: boolean;
+	isPartOfAllUpdates?: boolean;
+}
+
 export class CommandService {
 	private app: App;
-	private plugin: Plugin;
+	private addCommand: (command: Command) => void;
 	private settings: IOTOUpdateSettings;
 	private templaterService: TemplaterService;
 	private userSyncSettingAirtableIds: AirtableIds | null;
 
 	constructor(
 		app: App,
-		plugin: Plugin,
+		addCommand: (command: Command) => void,
 		settings: IOTOUpdateSettings,
 		templaterService: TemplaterService
 	) {
 		this.app = app;
-		this.plugin = plugin;
+		this.addCommand = addCommand;
 		this.settings = settings;
 		this.templaterService = templaterService;
 		this.userSyncSettingAirtableIds = Utils.extractAirtableIds(
@@ -34,90 +46,101 @@ export class CommandService {
 		);
 	}
 
+	private getCommandConfigs(): CommandConfig[] {
+		return [
+			{
+				id: "get-core-files",
+				name: t("Update Core Files"),
+				tableConfig: () => ({
+					baseID: this.settings.updateIDs.iotoCore.baseID,
+					tableID: this.settings.updateIDs.iotoCore.tableID,
+					viewID: this.settings.updateIDs.iotoCore.viewID,
+					targetFolderPath: this.settings.iotoFrameworkPath,
+				}),
+				isPartOfAllUpdates: true,
+			},
+			{
+				id: "get-help-doc",
+				name: t("Update Help Docs"),
+				tableConfig: () => ({
+					baseID: this.settings.updateIDs.iotoHelpDocs.baseID,
+					tableID: this.settings.updateIDs.iotoHelpDocs.tableID,
+					viewID: this.settings.updateIDs.iotoHelpDocs.viewID,
+					targetFolderPath: this.settings.iotoFrameworkPath,
+				}),
+				iotoUpdate: false,
+				filterRecordsByDate: true,
+				isPartOfAllUpdates: true,
+			},
+			{
+				id: "get-myioto",
+				name: t("Update MYIOTO Templates"),
+				tableConfig: () => ({
+					baseID: this.settings.updateIDs.myIotoFull.baseID,
+					tableID: this.settings.updateIDs.myIotoFull.tableID,
+					viewID: this.settings.updateIDs.myIotoFull.viewID,
+					targetFolderPath: this.settings.iotoFrameworkPath,
+				}),
+				isPartOfAllUpdates: true,
+			},
+			{
+				id: "get-css",
+				name: t("Update CSS Snippets"),
+				tableConfig: () => ({
+					baseID: this.settings.updateIDs.iotoCssSnippets.baseID,
+					tableID: this.settings.updateIDs.iotoCssSnippets.tableID,
+					viewID: this.settings.updateIDs.iotoCssSnippets.viewID,
+					targetFolderPath: `${this.app.vault.configDir}`,
+				}),
+				reloadOB: true,
+				isPartOfAllUpdates: true,
+			},
+			{
+				id: "get-setting-plugin",
+				name: t("Update IOTO Framwork Setting Plugin"),
+				tableConfig: () => ({
+					baseID: this.settings.updateIDs.iotoSettingPlugin.baseID,
+					tableID: this.settings.updateIDs.iotoSettingPlugin.tableID,
+					viewID: this.settings.updateIDs.iotoSettingPlugin.viewID,
+					targetFolderPath: `${this.app.vault.configDir}`,
+				}),
+				reloadOB: true,
+				isPartOfAllUpdates: true,
+			},
+			{
+				id: "get-user-sync-scripts",
+				name: t("Get Your Personal Sync Templates"),
+				tableConfig: () => ({
+					baseID: this.userSyncSettingAirtableIds?.baseId || "",
+					tableID: this.userSyncSettingAirtableIds?.tableId || "",
+					viewID: this.userSyncSettingAirtableIds?.viewId || "",
+					targetFolderPath: this.settings.userSyncScriptsFolder,
+				}),
+				iotoUpdate: false,
+				filterRecordsByDate: false,
+				apiKey: () => this.settings.userAPIKey,
+				forceEnSyncFields: true,
+			},
+		];
+	}
+
 	registerCommands() {
-		// 定义所有 tableConfig 配置
-		const tableConfigs = {
-			coreFiles: {
-				baseID: this.settings.updateIDs.iotoCore.baseID,
-				tableID: this.settings.updateIDs.iotoCore.tableID,
-				viewID: this.settings.updateIDs.iotoCore.viewID,
-				targetFolderPath: this.settings.iotoFrameworkPath,
-			},
-			helpDocs: {
-				baseID: this.settings.updateIDs.iotoHelpDocs.baseID,
-				tableID: this.settings.updateIDs.iotoHelpDocs.tableID,
-				viewID: this.settings.updateIDs.iotoHelpDocs.viewID,
-				targetFolderPath: this.settings.iotoFrameworkPath,
-			},
-			myIoto: {
-				baseID: this.settings.updateIDs.myIotoFull.baseID,
-				tableID: this.settings.updateIDs.myIotoFull.tableID,
-				viewID: this.settings.updateIDs.myIotoFull.viewID,
-				targetFolderPath: this.settings.iotoFrameworkPath,
-			},
-			cssSnippets: {
-				baseID: this.settings.updateIDs.iotoCssSnippets.baseID,
-				tableID: this.settings.updateIDs.iotoCssSnippets.tableID,
-				viewID: this.settings.updateIDs.iotoCssSnippets.viewID,
-				targetFolderPath: `${this.app.vault.configDir}`,
-			},
-			settingPlugin: {
-				baseID: this.settings.updateIDs.iotoSettingPlugin.baseID,
-				tableID: this.settings.updateIDs.iotoSettingPlugin.tableID,
-				viewID: this.settings.updateIDs.iotoSettingPlugin.viewID,
-				targetFolderPath: `${this.app.vault.configDir}`,
-			},
-			userSyncScripts: {
-				baseID: this.userSyncSettingAirtableIds?.baseId || "",
-				tableID: this.userSyncSettingAirtableIds?.tableId || "",
-				viewID: this.userSyncSettingAirtableIds?.viewId || "",
-				targetFolderPath: this.settings.userSyncScriptsFolder,
-			},
-		};
+		const commandConfigs = this.getCommandConfigs();
 
-		// 创建所有命令
-		this.createNocoDBCommand(
-			"get-core-files",
-			t("Update Core Files"),
-			tableConfigs.coreFiles
-		);
-		this.createNocoDBCommand(
-			"get-help-doc",
-			t("Update Help Docs"),
-			tableConfigs.helpDocs,
-			false,
-			true,
-			true
-		);
-		this.createNocoDBCommand(
-			"get-myioto",
-			t("Update MYIOTO Templates"),
-			tableConfigs.myIoto
-		);
-		this.createNocoDBCommand(
-			"get-css",
-			t("Update CSS Snippets"),
-			tableConfigs.cssSnippets,
-			true
-		);
-		this.createNocoDBCommand(
-			"get-setting-plugin",
-			t("Update IOTO Framwork Setting Plugin"),
-			tableConfigs.settingPlugin,
-			true
-		);
-		this.createNocoDBCommand(
-			"get-user-sync-scripts",
-			t("Get Your Personal Sync Templates"),
-			tableConfigs.userSyncScripts,
-			false,
-			false,
-			false,
-			this.settings.userAPIKey,
-			true
-		);
+		commandConfigs.forEach((config) => {
+			this.createNocoDBCommand(
+				config.id,
+				config.name,
+				config.tableConfig(),
+				config.reloadOB,
+				config.iotoUpdate,
+				config.filterRecordsByDate,
+				config.apiKey ? config.apiKey() : this.settings.updateAPIKey,
+				config.forceEnSyncFields
+			);
+		});
 
-		this.createRunAllUpdatesCommand(tableConfigs);
+		this.createRunAllUpdatesCommand(commandConfigs);
 	}
 
 	async executeNocoDBCommand(
@@ -157,7 +180,7 @@ export class CommandService {
 		apiKey: string = this.settings.updateAPIKey,
 		forceEnSyncFields: boolean = false
 	) {
-		this.plugin.addCommand({
+		this.addCommand({
 			id,
 			name,
 			callback: async () => {
@@ -165,76 +188,52 @@ export class CommandService {
 					this.templaterService.getPluginSetting(
 						"trigger_on_file_creation"
 					);
-				if (templaterTrigerAtCreate) {
-					await this.templaterService.setTemplaterSetting(
-						"trigger_on_file_creation",
-						false
+				try {
+					if (templaterTrigerAtCreate) {
+						await this.templaterService.setTemplaterSetting(
+							"trigger_on_file_creation",
+							false
+						);
+					}
+					await this.executeNocoDBCommand(
+						tableConfig,
+						iotoUpdate,
+						filterRecordsByDate,
+						apiKey,
+						forceEnSyncFields
 					);
-				}
-				await this.executeNocoDBCommand(
-					tableConfig,
-					iotoUpdate,
-					filterRecordsByDate,
-					apiKey,
-					forceEnSyncFields
-				);
-				if (templaterTrigerAtCreate) {
-					await this.templaterService.setTemplaterSetting(
-						"trigger_on_file_creation",
-						true
-					);
-				}
-				if (reloadOB) {
-					setTimeout(() => {
-						this.app.commands.executeCommandById("app:reload");
-					}, 1000);
-					return;
+				} catch (error) {
+					new Notice(error.message);
+				} finally {
+					if (templaterTrigerAtCreate) {
+						await this.templaterService.setTemplaterSetting(
+							"trigger_on_file_creation",
+							true
+						);
+					}
+					if (reloadOB) {
+						setTimeout(() => {
+							this.app.commands.executeCommandById("app:reload");
+						}, 1000);
+						return;
+					}
 				}
 			},
 		});
 	}
 
-	createRunAllUpdatesCommand(tableConfigs: {
-		coreFiles: NocoDBTable;
-		helpDocs: NocoDBTable;
-		myIoto: NocoDBTable;
-		cssSnippets: NocoDBTable;
-		settingPlugin: NocoDBTable;
-	}) {
-		this.plugin.addCommand({
+	createRunAllUpdatesCommand(commandConfigs: CommandConfig[]) {
+		this.addCommand({
 			id: "run-all-updates",
 			name: t("Deploy IOTO With One Click"),
 			callback: async () => {
-				const updateTasks = [
-					{
-						id: "ioto-update:get-setting-plugin",
-						name: t("Get IOTO Framework Setting Plugin"),
-						tableConfig: tableConfigs.settingPlugin,
-					},
-					{
-						id: "ioto-update:get-css",
-						name: t("Get CSS Snippets"),
-						tableConfig: tableConfigs.cssSnippets,
-					},
-					{
-						id: "ioto-update:get-core-files",
-						name: t("Get Core Files"),
-						tableConfig: tableConfigs.coreFiles,
-					},
-					{
-						id: "ioto-update:get-myioto",
-						name: t("Get MYIOTO Templates"),
-						tableConfig: {
-							...tableConfigs.myIoto,
-							intialSetup: true,
-						},
-					},
-					{
-						id: "ioto-update:get-help-doc",
-						name: t("Get Help Docs"),
-						tableConfig: tableConfigs.helpDocs,
-					},
-				];
+				const updateTasks = commandConfigs
+					.filter((config) => config.isPartOfAllUpdates)
+					.map((config) => ({
+						id: config.id,
+						name: config.name,
+						tableConfig: config.tableConfig(),
+					}));
 
 				let successCount = 0;
 
@@ -259,7 +258,9 @@ export class CommandService {
 						new Notice(`${task.name} ${t("completed")}`);
 						successCount++;
 					} catch (error) {
-						new Notice(`${task.name} ${t("failed")}`);
+						new Notice(
+							`${task.name} ${t("failed")}: ${error.message}`
+						);
 					}
 				}
 

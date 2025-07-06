@@ -47,7 +47,6 @@ export class Utils {
 	}
 
 	static buildFieldNames(forceDefaultFetchFields: boolean = false) {
-		const local = moment.locale();
 		if (forceDefaultFetchFields) {
 			return {
 				title: "Title",
@@ -55,32 +54,24 @@ export class Utils {
 				content: "MD",
 			};
 		}
-		const fieldNames = {
-			zhCN: {
-				title: "Title",
-				subFolder: "SubFolder",
-				content: "MD",
-			},
-			en: {
-				title: "TitleEN",
-				subFolder: "SubFolderEN",
-				content: "MDEN",
-			},
-			zhTW: {
+
+		const locale = moment.locale();
+		const fieldNamesMap: {
+			[key: string]: {
+				title: string;
+				subFolder: string;
+				content: string;
+			};
+		} = {
+			"zh-cn": { title: "Title", subFolder: "SubFolder", content: "MD" },
+			en: { title: "TitleEN", subFolder: "SubFolderEN", content: "MDEN" },
+			"zh-tw": {
 				title: "TitleTW",
 				subFolder: "SubFolderTW",
 				content: "MDTW",
 			},
 		};
-		switch (local) {
-			case "zh-cn":
-				return fieldNames.zhCN;
-			case "en":
-				return fieldNames.en;
-			case "zh-tw":
-				return fieldNames.zhTW;
-			default:
-				return fieldNames.en;
-		}
+
+		return fieldNamesMap[locale] || fieldNamesMap["en"];
 	}
 }

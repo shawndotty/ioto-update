@@ -23,30 +23,38 @@ export class ApiService {
 		}`;
 		const getUpdateIDsToken = AIRTABLE_CONFIG.GET_UPDATE_IDS.TOKEN;
 
-		const response = await requestUrl({
-			url: getUpdateIDsUrl,
-			method: "GET",
-			headers: { Authorization: "Bearer " + getUpdateIDsToken },
-		});
+		try {
+			const response = await requestUrl({
+				url: getUpdateIDsUrl,
+				method: "GET",
+				headers: { Authorization: "Bearer " + getUpdateIDsToken },
+			});
 
-		if (
-			response.json.records.length &&
-			response.json.records[0].fields[
-				AIRTABLE_CONFIG.GET_UPDATE_IDS.FIELDS.IOTO_UPDATE_IDS
-			]
-		) {
-			this.settings.updateIDs = JSON.parse(
+			if (
+				response.json.records.length &&
 				response.json.records[0].fields[
 					AIRTABLE_CONFIG.GET_UPDATE_IDS.FIELDS.IOTO_UPDATE_IDS
-				].first()
-			);
-			this.settings.userChecked = true;
-		} else {
-			this.settings.updateIDs = DEFAULT_UPDATE_IDS;
-			this.settings.userChecked = false;
+				]
+			) {
+				return {
+					updateIDs: JSON.parse(
+						response.json.records[0].fields[
+							AIRTABLE_CONFIG.GET_UPDATE_IDS.FIELDS
+								.IOTO_UPDATE_IDS
+						].first()
+					),
+					userChecked: true,
+				};
+			} else {
+				return {
+					updateIDs: DEFAULT_UPDATE_IDS,
+					userChecked: false,
+				};
+			}
+		} catch (error) {
+			console.error("Error getting update IDs:", error);
+			throw new Error("Failed to get update IDs from Airtable.");
 		}
-
-		return this.settings;
 	}
 
 	async checkApiKey() {
@@ -60,7 +68,7 @@ export class ApiService {
 			`{${AIRTABLE_CONFIG.CHECK_API_KEY.FIELDS.UUID}} = '${updateUUID}'`
 		)}&fields%5B%5D=${AIRTABLE_CONFIG.CHECK_API_KEY.FIELDS.MATCH}`;
 		const checkApiValidToken = AIRTABLE_CONFIG.CHECK_API_KEY.TOKEN;
-		let validKey = 0;
+
 		try {
 			await requestUrl({
 				url: checkApiWebHookUrl,
@@ -74,29 +82,22 @@ export class ApiService {
 
 			await new Promise((r) => setTimeout(r, 1500));
 
-			try {
-				const matchRes = await requestUrl({
-					url: checkApiValidUrl,
-					method: "GET",
-					headers: { Authorization: "Bearer " + checkApiValidToken },
-				});
-				validKey =
-					matchRes.json.records[0].fields[
-						AIRTABLE_CONFIG.CHECK_API_KEY.FIELDS.MATCH
-					];
-			} catch (error) {
-				console.log(error);
-			}
+			const matchRes = await requestUrl({
+				url: checkApiValidUrl,
+				method: "GET",
+				headers: { Authorization: "Bearer " + checkApiValidToken },
+			});
+
+			const validKey =
+				matchRes.json.records.length > 0 &&
+				matchRes.json.records[0].fields[
+					AIRTABLE_CONFIG.CHECK_API_KEY.FIELDS.MATCH
+				];
+
+			return !!validKey;
 		} catch (error) {
-			console.log(error);
+			console.error("Error checking API key:", error);
+			throw new Error("Failed to check API key.");
 		}
-
-		if (validKey) {
-			this.settings.updateAPIKeyIsValid = true;
-		} else {
-			this.settings.updateAPIKeyIsValid = false;
-		}
-
-		return this.settings;
 	}
 }
