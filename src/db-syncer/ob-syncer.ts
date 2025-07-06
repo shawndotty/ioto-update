@@ -1,9 +1,9 @@
 import { Notice } from "obsidian";
-import { t } from "./lang/helpers";
-import { NocoDBTable } from "./types";
-import { NocoDBSync } from "./NocoDBSync";
+import { t } from "../lang/helpers";
+import { NocoDBTable } from "../types";
+import { NocoDBSync } from "./nocodb-sync";
 
-export class MyObsidian {
+export class ObsidianSyncer {
 	app: any;
 	vault: any;
 	nocoDBSyncer: NocoDBSync;

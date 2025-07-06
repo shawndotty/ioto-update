@@ -1,8 +1,8 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
-import { t } from "./lang/helpers";
-import { IOTOUpdateSettings } from "./types";
-import IOTOUpdate from "./main";
-import { Utils } from "./utils";
+import { t } from "../lang/helpers";
+import { IOTOUpdateSettings } from "../types";
+import IOTOUpdate from "../main";
+import { Utils } from "../utils/utils";
 
 export const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",

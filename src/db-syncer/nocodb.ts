@@ -1,6 +1,6 @@
-import { NocoDBTable, NocoDBSettings } from "./types";
+import { NocoDBTable, NocoDBSettings } from "../types";
 
-export class MyNocoDB {
+export class NocoDB {
 	apiKey: string;
 	tables: NocoDBTable[];
 	apiUrlRoot: string;

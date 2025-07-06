@@ -1,5 +1,5 @@
 import { moment } from "obsidian";
-import { AirtableIds } from "./types";
+import { AirtableIds } from "../types";
 
 export class Utils {
 	static isValidApiKey(apiKey: string): boolean {

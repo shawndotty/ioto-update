@@ -1,10 +1,12 @@
 import { Notice, normalizePath, FuzzySuggestModal, FuzzyMatch } from "obsidian";
-import { t } from "./lang/helpers";
-import { NocoDBTable, RecordFields, Record, DateFilterOption } from "./types";
-import { MyNocoDB } from "./MyNocoDB";
+import { t } from "../lang/helpers";
+import { NocoDBTable, RecordFields, Record, DateFilterOption } from "../types";
+import { NocoDB } from "./nocodb";
+
+declare function requestUrl(options: any): Promise<any>;
 
 export class NocoDBSync {
-	nocodb: MyNocoDB;
+	nocodb: NocoDB;
 	app: any;
 	vault: any;
 	notesToCreate: any[];
@@ -15,7 +17,7 @@ export class NocoDBSync {
 	extension: string;
 	updatedIn: string;
 
-	constructor(nocodb: MyNocoDB, app: any) {
+	constructor(nocodb: NocoDB, app: any) {
 		this.nocodb = nocodb;
 		this.app = app;
 		this.vault = app.vault;
@@ -45,7 +47,7 @@ export class NocoDBSync {
 			this.subFolder,
 			this.extension,
 		];
-		console.dir(fields);
+
 		let dateFilterOption: DateFilterOption | null = null;
 		let dateFilterFormula = "";
 		if (filterRecordsByDate) {

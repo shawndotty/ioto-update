@@ -1,6 +1,5 @@
-import { Notice } from "obsidian";
-import { IOTOUpdateSettings } from "./types";
-import { AIRTABLE_CONFIG, DEFAULT_UPDATE_IDS } from "./constants";
+import { IOTOUpdateSettings } from "../types";
+import { AIRTABLE_CONFIG, DEFAULT_UPDATE_IDS } from "../constants";
 
 declare function requestUrl(options: any): Promise<any>;
 
