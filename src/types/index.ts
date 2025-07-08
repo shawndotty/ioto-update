@@ -11,6 +11,9 @@ declare module "obsidian" {
 				[key: string]: any;
 			};
 		};
+		dom: {
+			appContainerEl: HTMLElement;
+		};
 	}
 }
 
