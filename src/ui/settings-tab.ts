@@ -1,14 +1,9 @@
-import {
-	App,
-	Notice,
-	PluginSettingTab,
-	Setting,
-	TextComponent,
-} from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import { t } from "../lang/helpers";
 import IOTOUpdate from "../main";
 import { Utils } from "../utils";
 import { IOTOUpdateSettings } from "../types";
+import { FolderSuggest } from "./pickers/folder-picker";
 
 export class IOTOUpdateSettingTab extends PluginSettingTab {
 	plugin: IOTOUpdate;
@@ -116,6 +111,30 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			});
 	}
 
+	private createSearchSetting(options: {
+		container: HTMLElement;
+		name: string;
+		desc: string;
+		placeholder: string;
+		settingKey: keyof IOTOUpdateSettings;
+	}) {
+		new Setting(options.container)
+			.setName(options.name)
+			.setDesc(options.desc)
+			.addSearch((text) => {
+				new FolderSuggest(this.app, text.inputEl);
+				text.setPlaceholder(options.placeholder)
+					.setValue(
+						this.plugin.settings[options.settingKey] as string
+					)
+					.onChange(async (value) => {
+						(this.plugin.settings[options.settingKey] as any) =
+							value;
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
 	private createSimpleTextSetting(options: {
 		container: HTMLElement;
 		name: string;
@@ -187,7 +206,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			invalidClass: "invalid-email",
 		});
 
-		this.createSimpleTextSetting({
+		this.createSearchSetting({
 			container: containerEl,
 			name: t("IOTO Framework Path"),
 			desc: t("Please enter the path to your IOTO Framework"),
@@ -216,7 +235,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			settingKey: "userSyncSettingUrl",
 		});
 
-		this.createSimpleTextSetting({
+		this.createSearchSetting({
 			container: containerEl,
 			name: t("Your Sync Templates Folder"),
 			desc: t("Please enter the path to your sync templates folder"),
