@@ -170,6 +170,30 @@ export class CommandService {
 		);
 	}
 
+	private async withDisabledTemplaterTrigger(
+		action: () => Promise<void>
+	): Promise<void> {
+		const templaterTrigerAtCreate = this.templaterService.getPluginSetting(
+			"trigger_on_file_creation"
+		);
+		try {
+			if (templaterTrigerAtCreate) {
+				await this.templaterService.setTemplaterSetting(
+					"trigger_on_file_creation",
+					false
+				);
+			}
+			await action();
+		} finally {
+			if (templaterTrigerAtCreate) {
+				await this.templaterService.setTemplaterSetting(
+					"trigger_on_file_creation",
+					true
+				);
+			}
+		}
+	}
+
 	createNocoDBCommand(
 		id: string,
 		name: string,
@@ -184,33 +208,19 @@ export class CommandService {
 			id,
 			name,
 			callback: async () => {
-				const templaterTrigerAtCreate =
-					this.templaterService.getPluginSetting(
-						"trigger_on_file_creation"
-					);
 				try {
-					if (templaterTrigerAtCreate) {
-						await this.templaterService.setTemplaterSetting(
-							"trigger_on_file_creation",
-							false
+					await this.withDisabledTemplaterTrigger(async () => {
+						await this.executeNocoDBCommand(
+							tableConfig,
+							iotoUpdate,
+							filterRecordsByDate,
+							apiKey,
+							forceEnSyncFields
 						);
-					}
-					await this.executeNocoDBCommand(
-						tableConfig,
-						iotoUpdate,
-						filterRecordsByDate,
-						apiKey,
-						forceEnSyncFields
-					);
+					});
 				} catch (error) {
 					new Notice(error.message);
 				} finally {
-					if (templaterTrigerAtCreate) {
-						await this.templaterService.setTemplaterSetting(
-							"trigger_on_file_creation",
-							true
-						);
-					}
 					if (reloadOB) {
 						setTimeout(() => {
 							this.app.commands.executeCommandById("app:reload");
@@ -235,49 +245,50 @@ export class CommandService {
 						tableConfig: config.tableConfig(),
 					}));
 
-				let successCount = 0;
+				await this.withDisabledTemplaterTrigger(async () => {
+					const updatePromises = updateTasks.map((task) => {
+						return (async () => {
+							try {
+								new Notice(`${t("Executing")} ${task.name}...`);
+								// 优化写法，直接通过对象映射判断是否需要设置 intialSetup
+								const needInitialSetupIds = new Set([
+									"get-myioto",
+								]);
+								if (needInitialSetupIds.has(task.id)) {
+									task.tableConfig.intialSetup = true;
+								}
+								await this.executeNocoDBCommand(
+									task.tableConfig
+								);
+								new Notice(`${task.name} ${t("completed")}`);
+								return {
+									status: "fulfilled",
+									name: task.name,
+								};
+							} catch (error) {
+								new Notice(
+									`${task.name} ${t("failed")}: ${
+										error.message
+									}`
+								);
+								return {
+									status: "rejected",
+									name: task.name,
+									reason: error,
+								};
+							}
+						})();
+					});
 
-				const templaterTrigerAtCreate =
-					this.templaterService.getPluginSetting(
-						"trigger_on_file_creation"
-					);
-				if (templaterTrigerAtCreate) {
-					await this.templaterService.setTemplaterSetting(
-						"trigger_on_file_creation",
-						false
-					);
-				}
+					const results = await Promise.allSettled(updatePromises);
+					const successfulUpdates = results.filter(
+						(r) => r.status === "fulfilled"
+					).length;
 
-				for (const task of updateTasks) {
-					try {
-						new Notice(`${t("Executing")} ${task.name}...`);
-						// 优化写法，直接通过对象映射判断是否需要设置 intialSetup
-						const needInitialSetupIds = new Set(["get-myioto"]);
-						if (needInitialSetupIds.has(task.id)) {
-							task.tableConfig.intialSetup = true;
-						}
-						await this.executeNocoDBCommand(task.tableConfig);
-						// // 使用更优雅的方式实现延迟
-						// await new Promise(resolve => setTimeout(resolve, 5000));
-						new Notice(`${task.name} ${t("completed")}`);
-						successCount++;
-					} catch (error) {
-						new Notice(
-							`${task.name} ${t("failed")}: ${error.message}`
-						);
+					if (successfulUpdates === updateTasks.length) {
+						this.app.commands.executeCommandById("app:reload");
 					}
-				}
-
-				if (templaterTrigerAtCreate) {
-					await this.templaterService.setTemplaterSetting(
-						"trigger_on_file_creation",
-						true
-					);
-				}
-
-				if (successCount === updateTasks.length) {
-					this.app.commands.executeCommandById("app:reload");
-				}
+				});
 			},
 		});
 	}
