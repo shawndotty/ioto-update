@@ -251,10 +251,14 @@ export class CommandService {
 				for (const task of updateTasks) {
 					try {
 						new Notice(`${t("Executing")} ${task.name}...`);
+						// 优化写法，直接通过对象映射判断是否需要设置 intialSetup
+						const needInitialSetupIds = new Set(["get-myioto"]);
+						if (needInitialSetupIds.has(task.id)) {
+							task.tableConfig.intialSetup = true;
+						}
 						await this.executeNocoDBCommand(task.tableConfig);
-						await new Promise((resolve) =>
-							setTimeout(resolve, 5000)
-						);
+						// // 使用更优雅的方式实现延迟
+						// await new Promise(resolve => setTimeout(resolve, 5000));
 						new Notice(`${task.name} ${t("completed")}`);
 						successCount++;
 					} catch (error) {
