@@ -150,7 +150,10 @@ export class CommandService {
 		apiKey: string = this.settings.updateAPIKey,
 		forceDefaultFetchFields: boolean = false
 	) {
-		const fieldNames = Utils.buildFieldNames(forceDefaultFetchFields);
+		const fieldNames = Utils.buildFieldNames(
+			forceDefaultFetchFields,
+			this.settings.iotoRunningLanguage
+		);
 		const nocoDBSettings: NocoDBSettings = {
 			apiKey: apiKey,
 			tables: [tableConfig],

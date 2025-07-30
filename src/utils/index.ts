@@ -54,7 +54,10 @@ export class Utils {
 		};
 	}
 
-	static buildFieldNames(forceDefaultFetchFields: boolean = false) {
+	static buildFieldNames(
+		forceDefaultFetchFields: boolean = false,
+		iotoRunningLanguage = "ob"
+	) {
 		if (forceDefaultFetchFields) {
 			return {
 				title: "Title",
@@ -80,7 +83,11 @@ export class Utils {
 			},
 		};
 
-		return fieldNamesMap[locale] || fieldNamesMap["en"];
+		if (iotoRunningLanguage === "ob") {
+			return fieldNamesMap[locale] || fieldNamesMap["en"];
+		} else {
+			return fieldNamesMap[iotoRunningLanguage] || fieldNamesMap["en"];
+		}
 	}
 }
 

@@ -88,4 +88,8 @@ export default {
 	"Validating...": "Validating...",
 	"Valid API Key": "Valid API Key",
 	"Valid Email": "Valid Email",
+	"IOTO Running Language": "IOTO Running Language",
+	"Please Chose Your IOTO Framework Running Language":
+		"Please Chose Your IOTO Framework Running Language",
+	"Auto (Follow System Language)": "Auto (Follow System Language)",
 };

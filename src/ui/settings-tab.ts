@@ -206,6 +206,23 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			invalidClass: "invalid-email",
 		});
 
+		// 创建一个用于设置 iotoRunningLanguage 的单选设置
+		new Setting(containerEl)
+			.setName(t("IOTO Running Language"))
+			.setDesc(t("Please Chose Your IOTO Framework Running Language"))
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("ob", t("Auto (Follow System Language)"))
+					.addOption("zh-cn", "中文（简体）")
+					.addOption("zh-tw", "中文（繁体）")
+					.addOption("en", "English")
+					.setValue(this.plugin.settings.iotoRunningLanguage || "ob")
+					.onChange(async (value) => {
+						this.plugin.settings.iotoRunningLanguage = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
 		this.createSearchSetting({
 			container: containerEl,
 			name: t("IOTO Framework Path"),

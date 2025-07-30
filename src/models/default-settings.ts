@@ -4,6 +4,7 @@ import { t } from "../lang/helpers";
 export const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKey: "",
 	updateAPIKeyIsValid: false,
+	iotoRunningLanguage: "ob",
 	userEmail: "",
 	iotoFrameworkPath: t("IOTOFrameworPath"),
 	userAPIKey: "",

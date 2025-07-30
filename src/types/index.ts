@@ -26,6 +26,7 @@ export interface AirtableIds {
 export interface IOTOUpdateSettings {
 	updateAPIKey: string;
 	updateAPIKeyIsValid: boolean;
+	iotoRunningLanguage: string;
 	userEmail: string;
 	userChecked: boolean;
 	iotoFrameworkPath: string;
