@@ -91,5 +91,5 @@ export default {
 	"IOTO Running Language": "IOTO Running Language",
 	"Please Chose Your IOTO Framework Running Language":
 		"Please Chose Your IOTO Framework Running Language",
-	"Auto (Follow System Language)": "Auto (Follow System Language)",
+	"Auto (Follow System Language)": "Auto (Follow Obsidian Language)",
 };

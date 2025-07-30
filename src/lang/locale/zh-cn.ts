@@ -76,4 +76,8 @@ export default {
 	"Validating...": "正在验证...",
 	"Valid API Key": "有效API密钥",
 	"Valid Email": "有效电子邮件",
+	"IOTO Running Language": "IOTO框架运行语音",
+	"Please Chose Your IOTO Framework Running Language":
+		"请选择你的IOTO框架运行语言",
+	"Auto (Follow System Language)": "根据Obsidian的语言自动选择",
 };
