@@ -80,4 +80,5 @@ export default {
 	"Please Chose Your IOTO Framework Running Language":
 		"请选择你的IOTO框架运行语言",
 	"Auto (Follow System Language)": "根据Obsidian的语言自动选择",
+	"Reload OB": "重新加载",
 };

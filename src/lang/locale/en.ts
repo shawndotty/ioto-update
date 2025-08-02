@@ -92,4 +92,5 @@ export default {
 	"Please Chose Your IOTO Framework Running Language":
 		"Please Chose Your IOTO Framework Running Language",
 	"Auto (Follow System Language)": "Auto (Follow Obsidian Language)",
+	"Reload OB": "Reload OB",
 };

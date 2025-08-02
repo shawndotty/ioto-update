@@ -23,6 +23,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		validationFn: (value: string) => boolean;
 		asyncAction: () => Promise<any>;
 		onSuccess: (result: any) => void;
+		reload: boolean;
 		validText: string;
 		validClass: string;
 		invalidClass: string;
@@ -82,32 +83,73 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 					this.plugin.settings[options.validationKey] as boolean
 				);
 
+				// 记录初始值，用于比较是否有变化
+				const initialValue = this.plugin.settings[
+					options.settingKey
+				] as string;
+				let hasValueChanged = false;
+
 				text.setPlaceholder(options.placeholder)
-					.setValue(
-						this.plugin.settings[options.settingKey] as string
-					)
+					.setValue(initialValue)
 					.onChange(async (value) => {
+						// 只更新设置值，不触发验证
 						(this.plugin.settings[options.settingKey] as any) =
 							value;
-						if (options.validationFn(value)) {
-							updateValidState(false, true); // Show loading
-							try {
-								const result = await options.asyncAction();
-								options.onSuccess(result);
-								updateValidState(
-									this.plugin.settings[
-										options.validationKey
-									] as boolean
-								);
-							} catch (error) {
-								new Notice(error.message);
-								updateValidState(false);
-							}
-						} else {
-							updateValidState(false);
-						}
+						// 标记值已发生变化
+						hasValueChanged = true;
 						await this.plugin.saveSettings();
 					});
+
+				// 添加失去焦点事件监听器
+				text.inputEl.addEventListener("blur", async () => {
+					// 只有在值发生变化时才执行验证逻辑
+					if (!hasValueChanged) {
+						return;
+					}
+
+					const value = text.inputEl.value;
+					// 在失去焦点时触发验证
+					if (options.validationFn(value)) {
+						updateValidState(false, true); // Show loading
+						try {
+							const result = await options.asyncAction();
+							options.onSuccess(result);
+							updateValidState(
+								this.plugin.settings[
+									options.validationKey
+								] as boolean
+							);
+						} catch (error) {
+							new Notice(error.message);
+							updateValidState(false);
+						}
+					} else {
+						updateValidState(false);
+					}
+					await this.plugin.saveSettings();
+
+					if (
+						this.plugin.settings[options.validationKey] &&
+						options.reload
+					) {
+						// 在输入框后面添加一个重新加载按钮，点击后重新加载 Obsidian
+						const reloadButton = document.createElement("button");
+						reloadButton.textContent = t("Reload OB");
+						reloadButton.style.marginLeft = "8px";
+						reloadButton.style.padding = "2px 8px";
+						reloadButton.style.border = "1px solid #888";
+						reloadButton.style.borderRadius = "4px";
+						reloadButton.style.cursor = "pointer";
+						reloadButton.onclick = () => {
+							this.app.commands.executeCommandById("app:reload");
+						};
+						// 将按钮插入到输入框后面
+						text.inputEl.parentElement?.appendChild(reloadButton);
+					}
+
+					// 重置变化标记
+					hasValueChanged = false;
+				});
 			});
 	}
 
@@ -181,6 +223,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			onSuccess: (isValid) => {
 				this.plugin.settings.updateAPIKeyIsValid = isValid;
 			},
+			reload: false,
 			validText: t("Valid API Key"),
 			validClass: "valid-api-key",
 			invalidClass: "invalid-api-key",
@@ -201,6 +244,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 				this.plugin.settings.updateIDs = updateIDs;
 				this.plugin.settings.userChecked = userChecked;
 			},
+			reload: true,
 			validText: t("Valid Email"),
 			validClass: "valid-email",
 			invalidClass: "invalid-email",

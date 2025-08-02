@@ -80,4 +80,5 @@ export default {
 	"Please Chose Your IOTO Framework Running Language":
 		"請選擇你的IOTO框架執行語言",
 	"Auto (Follow System Language)": "自動（依照Obsidian語言）",
+	"Reload OB": "重新載入",
 };
