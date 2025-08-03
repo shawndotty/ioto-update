@@ -132,10 +132,10 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 						this.plugin.settings[options.validationKey] &&
 						options.reload
 					) {
-						// 在输入框后面添加一个重新加载按钮，点击后重新加载 Obsidian
+						// 在输入框后面添加一个重新加载按钮，使用 reload emoji，点击后重新加载 Obsidian
 						const reloadButton = document.createElement("button");
-						reloadButton.textContent = t("Reload OB");
-						reloadButton.style.marginLeft = "8px";
+						reloadButton.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;" xmlns="http://www.w3.org/2000/svg"><path d="M12 4a8 8 0 1 1-8 8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><polyline points="4 4 4 8 8 8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+						reloadButton.title = t("Reload OB") as string;
 						reloadButton.style.padding = "2px 8px";
 						reloadButton.style.border = "1px solid #888";
 						reloadButton.style.borderRadius = "4px";
