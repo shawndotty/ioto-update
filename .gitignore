@@ -23,3 +23,5 @@ data.json
 
 # Exclude zip files
 *.zip
+
+src/constants.ts
