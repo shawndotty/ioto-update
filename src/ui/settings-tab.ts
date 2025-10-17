@@ -322,7 +322,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		const baseLink = infoContainer.createEl("a", {
 			text: t("Sync Configration Generator"),
-			href: "https://airtable.com/appekNvvdLY7J8zsq/shrpqtEGVjz8bgw9N",
+			href: "https://airtable.com/app84J6QgVNsTUdPQ/shrJhhMFksy7XTrRb",
 		});
 		baseLink.setAttr("target", "_blank");
 		baseLink.setAttr("rel", "noopener noreferrer");
