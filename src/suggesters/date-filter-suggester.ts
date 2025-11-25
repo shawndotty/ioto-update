@@ -4,23 +4,27 @@ import { DateFilterOption } from "../types";
 
 export class DateFilterSuggester extends FuzzySuggestModal<DateFilterOption> {
 	private options: DateFilterOption[] = [
-		{ id: "day", name: t("Help documents updated today"), value: 1 },
+		{
+			id: "day",
+			name: `1. ${t("Help documents updated today")}`,
+			value: 1,
+		},
 		{
 			id: "week",
-			name: t("Help documents updated in the past week"),
+			name: `2. ${t("Help documents updated in the past week")}`,
 			value: 7,
 		},
 		{
 			id: "twoWeeks",
-			name: t("Help documents updated in the past two weeks"),
+			name: `3. ${t("Help documents updated in the past two weeks")}`,
 			value: 14,
 		},
 		{
 			id: "month",
-			name: t("Help documents updated in the past month"),
+			name: `4. ${t("Help documents updated in the past month")}`,
 			value: 30,
 		},
-		{ id: "all", name: t("All help documents"), value: 99 },
+		{ id: "all", name: `5. ${t("All help documents")}`, value: 99 },
 	];
 
 	getItems(): DateFilterOption[] {
