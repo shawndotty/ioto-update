@@ -93,4 +93,8 @@ export default {
 		"Please Chose Your IOTO Framework Running Language",
 	"Auto (Follow System Language)": "Auto (Follow Obsidian Language)",
 	"Reload OB": "Reload OB",
+	"Update User Permissions": "Update User Permissions",
+	"Update User Permissions Success": "Update User Permissions Success",
+	"Update User Permissions Failed": "Update User Permissions Failed",
+	"Updating User Permissions ...": "Updating User Permissions ...",
 };

@@ -81,4 +81,8 @@ export default {
 		"请选择你的IOTO框架运行语言",
 	"Auto (Follow System Language)": "根据Obsidian的语言自动选择",
 	"Reload OB": "重新加载",
+	"Update User Permissions": "更新用户权限",
+	"Update User Permissions Success": "更新用户权限成功",
+	"Update User Permissions Failed": "更新用户权限失败",
+	"Updating User Permissions ...": "正在更新用户权限 ...",
 };

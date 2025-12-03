@@ -47,7 +47,8 @@ export class ServiceContainer {
 				this._plugin.app,
 				this._plugin.addCommand.bind(this._plugin),
 				this._plugin.settings,
-				this.templaterService
+				this.templaterService,
+				this.apiService
 			);
 		}
 		return this._commandService;

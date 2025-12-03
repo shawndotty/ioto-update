@@ -11,6 +11,7 @@ import { NocoDBSync } from "./db-syncer/nocodb-sync";
 import { ObsidianSyncer } from "./db-syncer/ob-syncer";
 import { Utils } from "../utils";
 import { TemplaterService } from "./templater-service";
+import { ApiService } from "./api-service";
 
 interface CommandConfig {
 	id: string;
@@ -30,17 +31,20 @@ export class CommandService {
 	private settings: IOTOUpdateSettings;
 	private templaterService: TemplaterService;
 	private userSyncSettingAirtableIds: AirtableIds | null;
+	private apiService: ApiService;
 
 	constructor(
 		app: App,
 		addCommand: (command: Command) => void,
 		settings: IOTOUpdateSettings,
-		templaterService: TemplaterService
+		templaterService: TemplaterService,
+		apiService: ApiService
 	) {
 		this.app = app;
 		this.addCommand = addCommand;
 		this.settings = settings;
 		this.templaterService = templaterService;
+		this.apiService = apiService;
 		this.userSyncSettingAirtableIds = Utils.extractAirtableIds(
 			this.settings.userSyncSettingUrl
 		);
@@ -141,6 +145,27 @@ export class CommandService {
 		});
 
 		this.createRunAllUpdatesCommand(commandConfigs);
+
+		if (
+			this.settings.userChecked &&
+			Utils.isValidEmail(this.settings.userEmail)
+		) {
+			this.addCommand({
+				id: "update-user-permissions",
+				name: t("Update User Permissions"),
+				callback: async () => {
+					new Notice(t("Updating User Permissions ..."));
+					await this.executeWithReload(async () => {
+						await this.apiService.getUpdateIDs();
+					});
+					if (this.settings.userChecked) {
+						new Notice(t("Update User Permissions Success"));
+					} else {
+						new Notice(t("Update User Permissions Failed"));
+					}
+				},
+			});
+		}
 	}
 
 	async executeNocoDBCommand(
@@ -294,5 +319,14 @@ export class CommandService {
 				});
 			},
 		});
+	}
+
+	private async executeWithReload(
+		callback: () => Promise<void>
+	): Promise<void> {
+		await callback();
+		setTimeout(() => {
+			this.app.commands.executeCommandById("app:reload");
+		}, 1000);
 	}
 }
