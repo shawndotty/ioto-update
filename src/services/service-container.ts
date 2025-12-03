@@ -45,6 +45,7 @@ export class ServiceContainer {
 		if (!this._commandService) {
 			this._commandService = new CommandService(
 				this._plugin.app,
+				this._plugin,
 				this._plugin.addCommand.bind(this._plugin),
 				this._plugin.settings,
 				this.templaterService,

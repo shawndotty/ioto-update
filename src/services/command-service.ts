@@ -27,6 +27,7 @@ interface CommandConfig {
 
 export class CommandService {
 	private app: App;
+	private plugin: any;
 	private addCommand: (command: Command) => void;
 	private settings: IOTOUpdateSettings;
 	private templaterService: TemplaterService;
@@ -35,12 +36,14 @@ export class CommandService {
 
 	constructor(
 		app: App,
+		plugin: any,
 		addCommand: (command: Command) => void,
 		settings: IOTOUpdateSettings,
 		templaterService: TemplaterService,
 		apiService: ApiService
 	) {
 		this.app = app;
+		this.plugin = plugin;
 		this.addCommand = addCommand;
 		this.settings = settings;
 		this.templaterService = templaterService;
@@ -157,6 +160,7 @@ export class CommandService {
 					new Notice(t("Updating User Permissions ..."));
 					await this.executeWithReload(async () => {
 						await this.apiService.getUpdateIDs();
+						await this.plugin.saveSettings();
 					});
 					if (this.settings.userChecked) {
 						new Notice(t("Update User Permissions Success"));
