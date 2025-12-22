@@ -108,6 +108,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 					}
 
 					const value = text.inputEl.value;
+					console.log(value);
 					// 在失去焦点时触发验证
 					if (options.validationFn(value)) {
 						updateValidState(false, true); // Show loading
@@ -125,6 +126,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 						}
 					} else {
 						updateValidState(false);
+						options.onSuccess(false);
 					}
 					await this.plugin.saveSettings();
 
