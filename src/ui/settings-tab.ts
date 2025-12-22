@@ -4,6 +4,7 @@ import IOTOUpdate from "../main";
 import { Utils } from "../utils";
 import { IOTOUpdateSettings } from "../types";
 import { FolderSuggest } from "./pickers/folder-picker";
+import { TabbedSettings } from "./tabbed-settings";
 
 export class IOTOUpdateSettingTab extends PluginSettingTab {
 	plugin: IOTOUpdate;
@@ -208,11 +209,28 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl("h2", {
+		containerEl.createEl("h1", {
 			text: t("IOTO Update Settings"),
 			cls: "my-plugin-title",
 		});
 
+		const tabbedSettings = new TabbedSettings(containerEl);
+
+		tabbedSettings.addTab("Basic", (content: HTMLElement) =>
+			this.renderBasicSettings(content)
+		);
+
+		if (
+			this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID ===
+			"viwZvtQy1GDWu00sA"
+		) {
+			tabbedSettings.addTab("User Sync", (content: HTMLElement) =>
+				this.renderUserSyncSettings(content)
+			);
+		}
+	}
+
+	private renderBasicSettings(containerEl: HTMLElement) {
 		this.createValidatedInputSetting({
 			container: containerEl,
 			name: t("Your Update API Key"),
@@ -276,7 +294,9 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			placeholder: t("Enter the path to your IOTO Framework"),
 			settingKey: "iotoFrameworkPath",
 		});
+	}
 
+	private renderUserSyncSettings(containerEl: HTMLElement) {
 		containerEl.createEl("h2", {
 			text: t("User Sync Configration Update Settings"),
 			cls: "my-plugin-title",
