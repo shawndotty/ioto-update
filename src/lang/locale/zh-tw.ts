@@ -30,6 +30,8 @@ export default {
 	"Please enter the path to your IOTO Framework": "請輸入你的 IOTO 框架路徑",
 	"Enter the path to your IOTO Framework": "輸入你的IOTO框架路徑",
 	"IOTO Update Settings": "IOTO更新設定",
+	Basic: "基本設定",
+	UserSyncTemplates: "用戶同步模板",
 	"User Sync Configration Update Settings": "用戶同步配置更新設定",
 	"Your Airtable Personal Token": "你的Airtable個人令牌",
 	"Please enter your Airtable Personal Token": "請輸入你的 Airtable 個人令牌",

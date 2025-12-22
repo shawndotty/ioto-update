@@ -216,7 +216,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		const tabbedSettings = new TabbedSettings(containerEl);
 
-		tabbedSettings.addTab("Basic", (content: HTMLElement) =>
+		tabbedSettings.addTab(t("Basic"), (content: HTMLElement) =>
 			this.renderBasicSettings(content)
 		);
 
@@ -224,8 +224,9 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID ===
 			"viwZvtQy1GDWu00sA"
 		) {
-			tabbedSettings.addTab("User Sync", (content: HTMLElement) =>
-				this.renderUserSyncSettings(content)
+			tabbedSettings.addTab(
+				t("UserSyncTemplates"),
+				(content: HTMLElement) => this.renderUserSyncSettings(content)
 			);
 		}
 	}

@@ -35,6 +35,8 @@ export default {
 	"Enter the path to your IOTO Framework":
 		"Enter the path to your IOTO Framework",
 	"IOTO Update Settings": "IOTO Update Settings",
+	Basic: "Basic",
+	UserSyncTemplates: "User Sync Templates",
 	"User Sync Configration Update Settings":
 		"User Sync Configration Update Settings",
 	"Your Airtable Personal Token": "Your Airtable Personal Token",
