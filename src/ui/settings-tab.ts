@@ -232,6 +232,16 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 	}
 
 	private renderBasicSettings(containerEl: HTMLElement) {
+		const { updateAPIKeyIsValid, userChecked, updateAPIKey, userEmail } =
+			this.plugin.settings;
+		if (
+			!updateAPIKeyIsValid ||
+			!userChecked ||
+			!updateAPIKey ||
+			!userEmail
+		) {
+			this.renderLicensePurchaseInfo(containerEl);
+		}
 		this.createValidatedInputSetting({
 			container: containerEl,
 			name: t("Your Update API Key"),
@@ -363,5 +373,14 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		deomLink.setAttr("target", "_blank");
 		deomLink.setAttr("rel", "noopener noreferrer");
+	}
+
+	private renderLicensePurchaseInfo(containerEl: HTMLElement) {
+		containerEl.createEl("p", {
+			text: t("LicensePurchaseInfo"),
+		});
+		containerEl.createEl("p", {
+			text: t("AuthorWechatID"),
+		});
 	}
 }

@@ -1,5 +1,8 @@
 // Extract English https://regex101.com/r/e7htWd/1
 export default {
+	LicensePurchaseInfo:
+		"You need to purchase a license to access this feature. Please contact the author for more information. ",
+	AuthorWechatID: "Author Wechat ID: johnnylearns",
 	"You must provide an API Key to run this command":
 		"You must provide an API Key to run this command",
 	"You need to provide the email for your account to run this command":
