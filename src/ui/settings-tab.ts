@@ -221,8 +221,9 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		);
 
 		if (
-			this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID ===
-			"viwZvtQy1GDWu00sA"
+			["viwZvtQy1GDWu00sA", "viwwopZSx1IGoTiJE"].includes(
+				this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID
+			)
 		) {
 			tabbedSettings.addTab(
 				t("UserSyncTemplates"),
