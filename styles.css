@@ -26,3 +26,11 @@ If your plugin does not need CSS, delete this file.
 .settings-tab:hover {
     color: var(--text-accent);
 }
+
+.ioto-license-container {
+    background-color: var(--background-secondary);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    margin: 20px 0;
+}

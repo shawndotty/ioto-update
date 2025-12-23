@@ -376,10 +376,13 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 	}
 
 	private renderLicensePurchaseInfo(containerEl: HTMLElement) {
-		containerEl.createEl("p", {
+		const licenseContainer = containerEl.createDiv({
+			cls: "ioto-license-container",
+		});
+		licenseContainer.createEl("p", {
 			text: t("LicensePurchaseInfo"),
 		});
-		containerEl.createEl("p", {
+		licenseContainer.createEl("p", {
 			text: t("AuthorWechatID"),
 		});
 	}
