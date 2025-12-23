@@ -1,6 +1,6 @@
 export default {
 	LicensePurchaseInfo:
-		"您需要购买许可证才能访问此功能。请联系作者获取更多信息。",
+		"您需要购买许可证才能使用IOTO的所有功能。请联系作者获取更多信息。",
 	AuthorWechatID: "作者微信ID: johnnylearns",
 	"You must provide an API Key to run this command":
 		"运行此命令必须提供 API 密钥。",
