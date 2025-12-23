@@ -132,27 +132,31 @@ export class CommandService {
 	}
 
 	registerCommands() {
-		const commandConfigs = this.getCommandConfigs();
-
-		commandConfigs.forEach((config) => {
-			this.createNocoDBCommand(
-				config.id,
-				config.name,
-				config.tableConfig(),
-				config.reloadOB,
-				config.iotoUpdate,
-				config.filterRecordsByDate,
-				config.apiKey ? config.apiKey() : this.settings.updateAPIKey,
-				config.forceEnSyncFields
-			);
-		});
-
-		this.createRunAllUpdatesCommand(commandConfigs);
-
 		if (
 			this.settings.userChecked &&
+			this.settings.updateAPIKeyIsValid &&
+			Utils.isValidApiKey(this.settings.updateAPIKey) &&
 			Utils.isValidEmail(this.settings.userEmail)
 		) {
+			const commandConfigs = this.getCommandConfigs();
+
+			commandConfigs.forEach((config) => {
+				this.createNocoDBCommand(
+					config.id,
+					config.name,
+					config.tableConfig(),
+					config.reloadOB,
+					config.iotoUpdate,
+					config.filterRecordsByDate,
+					config.apiKey
+						? config.apiKey()
+						: this.settings.updateAPIKey,
+					config.forceEnSyncFields
+				);
+			});
+
+			this.createRunAllUpdatesCommand(commandConfigs);
+
 			this.addCommand({
 				id: "update-user-permissions",
 				name: t("Update User Permissions"),
