@@ -175,13 +175,30 @@ export class CommandService {
 				},
 			});
 
+			if (
+				["viwZvtQy1GDWu00sA", "viwwopZSx1IGoTiJE"].includes(
+					this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID,
+				)
+			) {
+				this.addCommand({
+					id: "install-ssg-from-github",
+					name: t("Install Sync Scripts Generator"),
+					callback: async () => {
+						await GithubService.installPluginFrom(
+							this.app,
+							"https://github.com/shawndotty/sync-script-generator",
+						);
+					},
+				});
+			}
+
 			this.addCommand({
-				id: "install-ssg-from-github",
-				name: t("Install Sync Scripts Generator"),
+				id: "install-itg-from-github",
+				name: t("Install IOTO Template Generator"),
 				callback: async () => {
 					await GithubService.installPluginFrom(
 						this.app,
-						"https://github.com/shawndotty/sync-script-generator",
+						"https://github.com/shawndotty/ioto-template-generator",
 					);
 				},
 			});

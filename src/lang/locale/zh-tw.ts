@@ -90,4 +90,25 @@ export default {
 	"Update User Permissions Success": "更新用戶權限成功",
 	"Update User Permissions Failed": "更新用戶權限失敗",
 	"Updating User Permissions ...": "正在更新用戶權限 ...",
+	IOTO_UPDATES: "IOTO更新記錄",
+	IOTO_TOTURIALS: "IOTO使用教程",
+	"Install IOTO Template Generator": "安裝IOTO模板生成器",
+	"Install Sync Scripts Generator": "安裝同步腳本生成器",
+	"Invalid GitHub repository URL": "無效的 GitHub 倉庫連結",
+	"Checking for updates from": "正在檢查更新：",
+	"No release found for this repository": "未找到此倉庫的發布版本",
+	"Release is missing manifest.json or main.js. Cannot install.":
+		"發布版本缺少 manifest.json 或 main.js，無法安裝。",
+	"Invalid manifest.json: missing 'id' field":
+		"無效的 manifest.json：缺少 'id' 欄位",
+	Plugin: "插件",
+	"installed/updated successfully": "安裝/更新成功",
+	reloaded: "已重新載入",
+	"Automatic reload failed": "自動重載失敗",
+	"Plugin updated but reload failed":
+		"插件已更新，但自動重載失敗，請手動重啟 Obsidian 或重新啟用插件。",
+	"Plugin installed, please enable manually":
+		"插件安裝完成，請在設定中手動啟用。",
+	"Failed to install plugin": "安裝插件失敗",
+	"Check console for details": "請查看控制台了解詳情",
 };
