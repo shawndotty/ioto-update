@@ -12,6 +12,7 @@ import { ObsidianSyncer } from "./db-syncer/ob-syncer";
 import { Utils } from "../utils";
 import { TemplaterService } from "./templater-service";
 import { ApiService } from "./api-service";
+import { GithubService } from "./github-service";
 
 interface CommandConfig {
 	id: string;
@@ -40,7 +41,7 @@ export class CommandService {
 		addCommand: (command: Command) => void,
 		settings: IOTOUpdateSettings,
 		templaterService: TemplaterService,
-		apiService: ApiService
+		apiService: ApiService,
 	) {
 		this.app = app;
 		this.plugin = plugin;
@@ -49,7 +50,7 @@ export class CommandService {
 		this.templaterService = templaterService;
 		this.apiService = apiService;
 		this.userSyncSettingAirtableIds = Utils.extractAirtableIds(
-			this.settings.userSyncSettingUrl
+			this.settings.userSyncSettingUrl,
 		);
 	}
 
@@ -151,7 +152,7 @@ export class CommandService {
 					config.apiKey
 						? config.apiKey()
 						: this.settings.updateAPIKey,
-					config.forceEnSyncFields
+					config.forceEnSyncFields,
 				);
 			});
 
@@ -173,6 +174,17 @@ export class CommandService {
 					}
 				},
 			});
+
+			this.addCommand({
+				id: "install-ssg-from-github",
+				name: t("Install Sync Scripts Generator"),
+				callback: async () => {
+					await GithubService.installPluginFrom(
+						this.app,
+						"https://github.com/shawndotty/sync-script-generator",
+					);
+				},
+			});
 		}
 	}
 
@@ -181,11 +193,11 @@ export class CommandService {
 		iotoUpdate: boolean = true,
 		filterRecordsByDate: boolean = false,
 		apiKey: string = this.settings.updateAPIKey,
-		forceDefaultFetchFields: boolean = false
+		forceDefaultFetchFields: boolean = false,
 	) {
 		const fieldNames = Utils.buildFieldNames(
 			forceDefaultFetchFields,
-			this.settings.iotoRunningLanguage
+			this.settings.iotoRunningLanguage,
 		);
 		const nocoDBSettings: NocoDBSettings = {
 			apiKey: apiKey,
@@ -202,21 +214,21 @@ export class CommandService {
 			tableConfig,
 			iotoUpdate,
 			this.settings.updateAPIKeyIsValid,
-			filterRecordsByDate
+			filterRecordsByDate,
 		);
 	}
 
 	private async withDisabledTemplaterTrigger(
-		action: () => Promise<void>
+		action: () => Promise<void>,
 	): Promise<void> {
 		const templaterTrigerAtCreate = this.templaterService.getPluginSetting(
-			"trigger_on_file_creation"
+			"trigger_on_file_creation",
 		);
 		try {
 			if (templaterTrigerAtCreate) {
 				await this.templaterService.setTemplaterSetting(
 					"trigger_on_file_creation",
-					false
+					false,
 				);
 			}
 			await action();
@@ -224,7 +236,7 @@ export class CommandService {
 			if (templaterTrigerAtCreate) {
 				await this.templaterService.setTemplaterSetting(
 					"trigger_on_file_creation",
-					true
+					true,
 				);
 			}
 		}
@@ -238,7 +250,7 @@ export class CommandService {
 		iotoUpdate: boolean = true,
 		filterRecordsByDate: boolean = false,
 		apiKey: string = this.settings.updateAPIKey,
-		forceEnSyncFields: boolean = false
+		forceEnSyncFields: boolean = false,
 	) {
 		this.addCommand({
 			id,
@@ -251,7 +263,7 @@ export class CommandService {
 							iotoUpdate,
 							filterRecordsByDate,
 							apiKey,
-							forceEnSyncFields
+							forceEnSyncFields,
 						);
 					});
 				} catch (error) {
@@ -294,7 +306,7 @@ export class CommandService {
 									task.tableConfig.intialSetup = true;
 								}
 								await this.executeNocoDBCommand(
-									task.tableConfig
+									task.tableConfig,
 								);
 								new Notice(`${task.name} ${t("completed")}`);
 								return {
@@ -305,7 +317,7 @@ export class CommandService {
 								new Notice(
 									`${task.name} ${t("failed")}: ${
 										error.message
-									}`
+									}`,
 								);
 								return {
 									status: "rejected",
@@ -318,7 +330,7 @@ export class CommandService {
 
 					const results = await Promise.allSettled(updatePromises);
 					const successfulUpdates = results.filter(
-						(r) => r.status === "fulfilled"
+						(r) => r.status === "fulfilled",
 					).length;
 
 					if (successfulUpdates === updateTasks.length) {
@@ -330,7 +342,7 @@ export class CommandService {
 	}
 
 	private async executeWithReload(
-		callback: () => Promise<void>
+		callback: () => Promise<void>,
 	): Promise<void> {
 		await callback();
 		setTimeout(() => {

@@ -104,4 +104,6 @@ export default {
 	"Updating User Permissions ...": "Updating User Permissions ...",
 	IOTO_UPDATES: "IOTO Updates",
 	IOTO_TOTURIALS: "IOTO Toturials",
+	"Install IOTO Template Generator": "Install IOTO Template Generator",
+	"Install Sync Scripts Generator": "Install Sync Scripts Generator",
 };
