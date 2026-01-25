@@ -103,4 +103,5 @@ export default {
 	"Update User Permissions Failed": "Update User Permissions Failed",
 	"Updating User Permissions ...": "Updating User Permissions ...",
 	IOTO_UPDATES: "IOTO Updates",
+	IOTO_TOTURIALS: "IOTO Toturials",
 };

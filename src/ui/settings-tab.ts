@@ -33,6 +33,10 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		tabbedSettings.addTab(t("IOTO_UPDATES"), (content: HTMLElement) =>
 			this.renderIOTOUpdatesSettings(content),
 		);
+
+		tabbedSettings.addTab(t("IOTO_TOTURIALS"), (content: HTMLElement) =>
+			this.renderIOTOToturialsSettings(content),
+		);
 	}
 
 	private renderBasicSettings(containerEl: HTMLElement) {
@@ -112,16 +116,31 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 	}
 
 	private renderIOTOUpdatesSettings(containerEl: HTMLElement) {
+		this.renderIframeSettings(
+			containerEl,
+			"ioto-updates-iframe-container",
+			"https://airtable.com/embed/appKL3zMp0cOYFdJk/shrGmdbDRAD6ZKqGt?backgroundColor=cyan&viewControls=on",
+		);
+	}
+
+	private renderIOTOToturialsSettings(containerEl: HTMLElement) {
+		this.renderIframeSettings(
+			containerEl,
+			"ioto-toturials-iframe-container",
+			"https://airtable.com/embed/appKL3zMp0cOYFdJk/shrbQQvVwAMI4sI0Y?backgroundColor=cyan&viewControls=on",
+		);
+	}
+
+	private renderIframeSettings(
+		containerEl: HTMLElement,
+		cls: string,
+		embedUrl: string,
+	) {
 		containerEl.empty();
 
 		const iframeContainer = containerEl.createDiv({
-			cls: "ioto-updates-iframe-container",
+			cls: cls,
 		});
-
-		// Replace this URL with your actual Airtable share URL
-		// Note: Use the embed URL format (e.g. https://airtable.com/embed/shr...)
-		const embedUrl =
-			"https://airtable.com/embed/appKL3zMp0cOYFdJk/shrGmdbDRAD6ZKqGt?backgroundColor=cyan&viewControls=on";
 
 		const iframe = iframeContainer.createEl("iframe");
 		iframe.setAttr("src", embedUrl);
