@@ -11,7 +11,7 @@ export default {
 	"Update MYIOTO Templates": "更新MYIOTO模板",
 	"Update CSS Snippets": "更新CSS代码片段",
 	"Update IOTO Framwork Setting Plugin": "更新IOTO框架设置插件",
-	"Your Update API Key": "更新你的 API 密钥",
+	"Your Update API Key": "你的 API 密钥",
 	"Please enter your update API Key": "请输入你的更新 API 密钥",
 	"Enter your update API Key": "输入你的更新 API 密钥",
 	"Updating, plese wait for a moment": "正在更新，请稍等。",
