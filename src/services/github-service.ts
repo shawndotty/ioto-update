@@ -143,6 +143,34 @@ export class GithubService {
 		}
 	}
 
+	static async getLatestPluginVersion(
+		repoUrl: string,
+	): Promise<string | null> {
+		try {
+			const repoInfo = this.parseRepoUrl(repoUrl);
+			if (!repoInfo) return null;
+			const release = await this.getLatestRelease(
+				repoInfo.owner,
+				repoInfo.repo,
+			);
+			if (!release) return null;
+
+			const manifestAsset = release.assets.find(
+				(a: any) => a.name === "manifest.json",
+			);
+			if (!manifestAsset) return null;
+
+			const manifestContent = await this.downloadAsset(
+				manifestAsset.browser_download_url,
+			);
+			const manifest = JSON.parse(manifestContent);
+			return manifest.version;
+		} catch (error) {
+			console.error("Failed to check for updates:", error);
+			return null;
+		}
+	}
+
 	private static parseRepoUrl(
 		url: string,
 	): { owner: string; repo: string } | null {

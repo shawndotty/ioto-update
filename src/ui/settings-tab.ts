@@ -2,6 +2,7 @@ import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import { t } from "../lang/helpers";
 import IOTOUpdate from "../main";
 import { Utils } from "../utils";
+import { GithubService } from "../services/github-service";
 import { IOTOUpdateSettings } from "../types";
 import { FolderSuggest } from "./pickers/folder-picker";
 import { TabbedSettings } from "./tabbed-settings";
@@ -50,6 +51,72 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		) {
 			this.renderLicensePurchaseInfo(containerEl);
 		}
+
+		const currentVersion = this.plugin.manifest.version;
+		const repoUrl = "https://github.com/shawndotty/ioto-update";
+
+		const versionSetting = new Setting(containerEl)
+			.setName(`${t("Current Version")}: ${currentVersion}`)
+			.setDesc(t("Check for Updates"))
+			.addButton((button) => {
+				button
+					.setButtonText(t("Check for Updates"))
+					.onClick(async () => {
+						button.setButtonText(t("Checking..."));
+						button.setDisabled(true);
+
+						const latestVersion =
+							await GithubService.getLatestPluginVersion(repoUrl);
+
+						button.setDisabled(false);
+
+						if (!latestVersion) {
+							button.setButtonText(t("Check for Updates"));
+							new Notice(t("Failed to check for updates"));
+							return;
+						}
+
+						const cmp = Utils.compareVersions(
+							currentVersion,
+							latestVersion,
+						);
+
+						if (cmp === 0) {
+							versionSetting.setDesc(t("Already up to date"));
+							button.setButtonText(t("Check for Updates"));
+						} else if (cmp < 0) {
+							versionSetting.setDesc(
+								`${t("Update available")}: ${latestVersion}`,
+							);
+							versionSetting.controlEl.empty();
+							versionSetting.addButton((b) => {
+								b.setButtonText(t("Start Update"))
+									.setCta()
+									.onClick(async () => {
+										b.setButtonText(t("Updating..."));
+										b.setDisabled(true);
+										await GithubService.installPluginFrom(
+											this.app,
+											repoUrl,
+										);
+										b.setButtonText(t("Updated"));
+										b.setDisabled(false);
+										new Notice(
+											t(
+												"Restart Obsidian to apply changes",
+											),
+										);
+									});
+							});
+						} else {
+							versionSetting.setDesc(
+								t("You are using a development version"),
+							);
+							button.setButtonText(t("Check for Updates"));
+						}
+					});
+			});
+
 		this.createValidatedInputSetting({
 			container: containerEl,
 			name: t("Your Update API Key"),

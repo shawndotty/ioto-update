@@ -125,4 +125,16 @@ export default {
 	"Failed to install plugin": "Failed to install plugin",
 	"Check console for details": "Check console for details",
 	"is already up to date": "is already up to date",
+	"Current Version": "Current Version",
+	"Check for Updates": "Check for Updates",
+	"Checking...": "Checking...",
+	"Already up to date": "Already up to date",
+	"Update available": "Update available",
+	"Start Update": "Start Update",
+	"You are using a development version":
+		"You are using a development version",
+	"Failed to check for updates": "Failed to check for updates",
+	"Updating...": "Updating...",
+	Updated: "Updated",
+	"Restart Obsidian to apply changes": "Restart Obsidian to apply changes",
 };
