@@ -111,4 +111,5 @@ export default {
 		"插件安裝完成，請在設定中手動啟用。",
 	"Failed to install plugin": "安裝插件失敗",
 	"Check console for details": "請查看控制台了解詳情",
+	"is already up to date": "已經是最新版",
 };

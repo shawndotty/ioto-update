@@ -58,6 +58,19 @@ export class GithubService {
 				return;
 			}
 
+			// Check if plugin is already installed and up to date
+			// @ts-ignore
+			const installedPlugin = app.plugins.manifests?.[pluginId];
+			if (
+				installedPlugin &&
+				installedPlugin.version === manifest.version
+			) {
+				new Notice(
+					`${t("Plugin")} "${manifest.name}" ${t("is already up to date")}`,
+				);
+				return;
+			}
+
 			// 5. Download other files
 			const mainJsContent = await this.downloadAsset(
 				mainJsAsset.browser_download_url,

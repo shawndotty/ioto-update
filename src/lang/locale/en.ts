@@ -124,4 +124,5 @@ export default {
 		"Plugin installed, please enable it in settings manually.",
 	"Failed to install plugin": "Failed to install plugin",
 	"Check console for details": "Check console for details",
+	"is already up to date": "is already up to date",
 };
