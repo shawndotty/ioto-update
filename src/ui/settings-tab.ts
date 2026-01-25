@@ -14,6 +14,207 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	display(): void {
+		const { containerEl } = this;
+
+		containerEl.empty();
+
+		containerEl.createEl("h1", {
+			text: t("IOTO Update Settings"),
+			cls: "my-plugin-title",
+		});
+
+		const tabbedSettings = new TabbedSettings(containerEl);
+
+		tabbedSettings.addTab(t("Basic"), (content: HTMLElement) =>
+			this.renderBasicSettings(content),
+		);
+
+		tabbedSettings.addTab(t("IOTO_UPDATES"), (content: HTMLElement) =>
+			this.renderIOTOUpdatesSettings(content),
+		);
+	}
+
+	private renderBasicSettings(containerEl: HTMLElement) {
+		const { updateAPIKeyIsValid, userChecked, updateAPIKey, userEmail } =
+			this.plugin.settings;
+		if (
+			!updateAPIKeyIsValid ||
+			!userChecked ||
+			!updateAPIKey ||
+			!userEmail
+		) {
+			this.renderLicensePurchaseInfo(containerEl);
+		}
+		this.createValidatedInputSetting({
+			container: containerEl,
+			name: t("Your Update API Key"),
+			desc: t("Please enter your update API Key"),
+			placeholder: t("Enter your update API Key"),
+			settingKey: "updateAPIKey",
+			validationKey: "updateAPIKeyIsValid",
+			validationFn: Utils.isValidApiKey,
+			asyncAction: () => this.plugin.apiService.checkApiKey(),
+			onSuccess: (isValid) => {
+				this.plugin.settings.updateAPIKeyIsValid = isValid;
+			},
+			reload: false,
+			validText: t("Valid API Key"),
+			validClass: "valid-api-key",
+			invalidClass: "invalid-api-key",
+		});
+
+		this.createValidatedInputSetting({
+			container: containerEl,
+			name: t("Your Email Address"),
+			desc: t(
+				"Please enter the email you provided when you purchase this product",
+			),
+			placeholder: t("Enter your email"),
+			settingKey: "userEmail",
+			validationKey: "userChecked",
+			validationFn: Utils.isValidEmail,
+			asyncAction: () => this.plugin.apiService.getUpdateIDs(),
+			onSuccess: ({ updateIDs, userChecked }) => {
+				this.plugin.settings.updateIDs = updateIDs;
+				this.plugin.settings.userChecked = userChecked;
+			},
+			reload: true,
+			validText: t("Valid Email"),
+			validClass: "valid-email",
+			invalidClass: "invalid-email",
+		});
+
+		// 创建一个用于设置 iotoRunningLanguage 的单选设置
+		new Setting(containerEl)
+			.setName(t("IOTO Running Language"))
+			.setDesc(t("Please Chose Your IOTO Framework Running Language"))
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("ob", t("Auto (Follow System Language)"))
+					.addOption("zh-cn", "中文（简体）")
+					.addOption("zh-tw", "中文（繁体）")
+					.addOption("en", "English")
+					.setValue(this.plugin.settings.iotoRunningLanguage || "ob")
+					.onChange(async (value) => {
+						this.plugin.settings.iotoRunningLanguage = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		this.createSearchSetting({
+			container: containerEl,
+			name: t("IOTO Framework Path"),
+			desc: t("Please enter the path to your IOTO Framework"),
+			placeholder: t("Enter the path to your IOTO Framework"),
+			settingKey: "iotoFrameworkPath",
+		});
+	}
+
+	private renderIOTOUpdatesSettings(containerEl: HTMLElement) {
+		containerEl.empty();
+
+		const iframeContainer = containerEl.createDiv({
+			cls: "ioto-updates-iframe-container",
+		});
+
+		// Replace this URL with your actual Airtable share URL
+		// Note: Use the embed URL format (e.g. https://airtable.com/embed/shr...)
+		const embedUrl =
+			"https://airtable.com/embed/appKL3zMp0cOYFdJk/shrGmdbDRAD6ZKqGt?backgroundColor=cyan&viewControls=on";
+
+		const iframe = iframeContainer.createEl("iframe");
+		iframe.setAttr("src", embedUrl);
+		iframe.setAttr("frameborder", "0");
+		iframe.setAttr("onmousewheel", "");
+		iframe.setAttr("width", "100%");
+		iframe.setAttr("height", "600px");
+		iframe.setAttr(
+			"style",
+			"background: transparent; border: 1px solid var(--background-modifier-border);",
+		);
+	}
+
+	private renderUserSyncSettings(containerEl: HTMLElement) {
+		containerEl.createEl("h2", {
+			text: t("User Sync Configration Update Settings"),
+			cls: "my-plugin-title",
+		});
+
+		this.createSimpleTextSetting({
+			container: containerEl,
+			name: t("Your Airtable Personal Token"),
+			desc: t("Please enter your Airtable Personal Token"),
+			placeholder: t("Enter your Airtable Personal Token"),
+			settingKey: "userAPIKey",
+		});
+
+		this.createSimpleTextSetting({
+			container: containerEl,
+			name: t("Your Sync Setting URL"),
+			desc: t("Please enter the url of your sync setting table"),
+			placeholder: t("Enter the url"),
+			settingKey: "userSyncSettingUrl",
+		});
+
+		this.createSearchSetting({
+			container: containerEl,
+			name: t("Your Sync Templates Folder"),
+			desc: t("Please enter the path to your sync templates folder"),
+			placeholder: t("Enter the path to your sync templates folder"),
+			settingKey: "userSyncScriptsFolder",
+		});
+
+		containerEl.createEl("hr");
+
+		const infoContainer = containerEl.createDiv();
+
+		infoContainer.createEl("p", {
+			text: t(
+				"When you use the sync with online database feature of IOTO, the sync configration generater I built could help you a lot.",
+			),
+		});
+
+		infoContainer.createEl("p", {
+			text: t(
+				"You can use the following link to open the shared base and save it to your own Airtable workspace.",
+			),
+		});
+
+		const baseLink = infoContainer.createEl("a", {
+			text: t("Sync Configration Generator"),
+			href: "https://airtable.com/app84J6QgVNsTUdPQ/shrJhhMFksy7XTrRb",
+		});
+		baseLink.setAttr("target", "_blank");
+		baseLink.setAttr("rel", "noopener noreferrer");
+
+		infoContainer.createEl("p", {
+			text: t(
+				"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link.",
+			),
+		});
+
+		const deomLink = infoContainer.createEl("a", {
+			text: t("IOTO How To Guide"),
+			href: "https://airtable.com/appKL3zMp0cOYFdJk/shrbQQvVwAMI4sI0Y",
+		});
+
+		deomLink.setAttr("target", "_blank");
+		deomLink.setAttr("rel", "noopener noreferrer");
+	}
+
+	private renderLicensePurchaseInfo(containerEl: HTMLElement) {
+		const licenseContainer = containerEl.createDiv({
+			cls: "ioto-license-container",
+		});
+		licenseContainer.createEl("p", {
+			text: t("LicensePurchaseInfo"),
+		});
+		licenseContainer.createEl("p", {
+			text: t("AuthorWechatID"),
+		});
+	}
+
 	private createValidatedInputSetting(options: {
 		container: HTMLElement;
 		name: string;
@@ -45,16 +246,16 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 				loadingSpan.style.display = "none";
 				text.inputEl.parentElement?.insertBefore(
 					validSpan,
-					text.inputEl
+					text.inputEl,
 				);
 				text.inputEl.parentElement?.insertBefore(
 					loadingSpan,
-					text.inputEl
+					text.inputEl,
 				);
 
 				const updateValidState = (
 					isValid: boolean,
-					isLoading: boolean = false
+					isLoading: boolean = false,
 				) => {
 					if (isLoading) {
 						text.inputEl.removeClass(options.validClass);
@@ -81,7 +282,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 				// Initial state
 				updateValidState(
-					this.plugin.settings[options.validationKey] as boolean
+					this.plugin.settings[options.validationKey] as boolean,
 				);
 
 				// 记录初始值，用于比较是否有变化
@@ -119,7 +320,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 							updateValidState(
 								this.plugin.settings[
 									options.validationKey
-								] as boolean
+								] as boolean,
 							);
 						} catch (error) {
 							new Notice(error.message);
@@ -170,7 +371,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 				new FolderSuggest(this.app, text.inputEl);
 				text.setPlaceholder(options.placeholder)
 					.setValue(
-						this.plugin.settings[options.settingKey] as string
+						this.plugin.settings[options.settingKey] as string,
 					)
 					.onChange(async (value) => {
 						(this.plugin.settings[options.settingKey] as any) =
@@ -194,197 +395,13 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 				text
 					.setPlaceholder(options.placeholder)
 					.setValue(
-						this.plugin.settings[options.settingKey] as string
+						this.plugin.settings[options.settingKey] as string,
 					)
 					.onChange(async (value) => {
 						(this.plugin.settings[options.settingKey] as any) =
 							value;
 						await this.plugin.saveSettings();
-					})
+					}),
 			);
-	}
-
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		containerEl.createEl("h1", {
-			text: t("IOTO Update Settings"),
-			cls: "my-plugin-title",
-		});
-
-		const tabbedSettings = new TabbedSettings(containerEl);
-
-		tabbedSettings.addTab(t("Basic"), (content: HTMLElement) =>
-			this.renderBasicSettings(content)
-		);
-
-		if (
-			["viwZvtQy1GDWu00sA", "viwwopZSx1IGoTiJE"].includes(
-				this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID
-			)
-		) {
-			tabbedSettings.addTab(
-				t("UserSyncTemplates"),
-				(content: HTMLElement) => this.renderUserSyncSettings(content)
-			);
-		}
-	}
-
-	private renderBasicSettings(containerEl: HTMLElement) {
-		const { updateAPIKeyIsValid, userChecked, updateAPIKey, userEmail } =
-			this.plugin.settings;
-		if (
-			!updateAPIKeyIsValid ||
-			!userChecked ||
-			!updateAPIKey ||
-			!userEmail
-		) {
-			this.renderLicensePurchaseInfo(containerEl);
-		}
-		this.createValidatedInputSetting({
-			container: containerEl,
-			name: t("Your Update API Key"),
-			desc: t("Please enter your update API Key"),
-			placeholder: t("Enter your update API Key"),
-			settingKey: "updateAPIKey",
-			validationKey: "updateAPIKeyIsValid",
-			validationFn: Utils.isValidApiKey,
-			asyncAction: () => this.plugin.apiService.checkApiKey(),
-			onSuccess: (isValid) => {
-				this.plugin.settings.updateAPIKeyIsValid = isValid;
-			},
-			reload: false,
-			validText: t("Valid API Key"),
-			validClass: "valid-api-key",
-			invalidClass: "invalid-api-key",
-		});
-
-		this.createValidatedInputSetting({
-			container: containerEl,
-			name: t("Your Email Address"),
-			desc: t(
-				"Please enter the email you provided when you purchase this product"
-			),
-			placeholder: t("Enter your email"),
-			settingKey: "userEmail",
-			validationKey: "userChecked",
-			validationFn: Utils.isValidEmail,
-			asyncAction: () => this.plugin.apiService.getUpdateIDs(),
-			onSuccess: ({ updateIDs, userChecked }) => {
-				this.plugin.settings.updateIDs = updateIDs;
-				this.plugin.settings.userChecked = userChecked;
-			},
-			reload: true,
-			validText: t("Valid Email"),
-			validClass: "valid-email",
-			invalidClass: "invalid-email",
-		});
-
-		// 创建一个用于设置 iotoRunningLanguage 的单选设置
-		new Setting(containerEl)
-			.setName(t("IOTO Running Language"))
-			.setDesc(t("Please Chose Your IOTO Framework Running Language"))
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption("ob", t("Auto (Follow System Language)"))
-					.addOption("zh-cn", "中文（简体）")
-					.addOption("zh-tw", "中文（繁体）")
-					.addOption("en", "English")
-					.setValue(this.plugin.settings.iotoRunningLanguage || "ob")
-					.onChange(async (value) => {
-						this.plugin.settings.iotoRunningLanguage = value;
-						await this.plugin.saveSettings();
-					});
-			});
-
-		this.createSearchSetting({
-			container: containerEl,
-			name: t("IOTO Framework Path"),
-			desc: t("Please enter the path to your IOTO Framework"),
-			placeholder: t("Enter the path to your IOTO Framework"),
-			settingKey: "iotoFrameworkPath",
-		});
-	}
-
-	private renderUserSyncSettings(containerEl: HTMLElement) {
-		containerEl.createEl("h2", {
-			text: t("User Sync Configration Update Settings"),
-			cls: "my-plugin-title",
-		});
-
-		this.createSimpleTextSetting({
-			container: containerEl,
-			name: t("Your Airtable Personal Token"),
-			desc: t("Please enter your Airtable Personal Token"),
-			placeholder: t("Enter your Airtable Personal Token"),
-			settingKey: "userAPIKey",
-		});
-
-		this.createSimpleTextSetting({
-			container: containerEl,
-			name: t("Your Sync Setting URL"),
-			desc: t("Please enter the url of your sync setting table"),
-			placeholder: t("Enter the url"),
-			settingKey: "userSyncSettingUrl",
-		});
-
-		this.createSearchSetting({
-			container: containerEl,
-			name: t("Your Sync Templates Folder"),
-			desc: t("Please enter the path to your sync templates folder"),
-			placeholder: t("Enter the path to your sync templates folder"),
-			settingKey: "userSyncScriptsFolder",
-		});
-
-		containerEl.createEl("hr");
-
-		const infoContainer = containerEl.createDiv();
-
-		infoContainer.createEl("p", {
-			text: t(
-				"When you use the sync with online database feature of IOTO, the sync configration generater I built could help you a lot."
-			),
-		});
-
-		infoContainer.createEl("p", {
-			text: t(
-				"You can use the following link to open the shared base and save it to your own Airtable workspace."
-			),
-		});
-
-		const baseLink = infoContainer.createEl("a", {
-			text: t("Sync Configration Generator"),
-			href: "https://airtable.com/app84J6QgVNsTUdPQ/shrJhhMFksy7XTrRb",
-		});
-		baseLink.setAttr("target", "_blank");
-		baseLink.setAttr("rel", "noopener noreferrer");
-
-		infoContainer.createEl("p", {
-			text: t(
-				"In order to help you to learn how to use IOTO especially the sync with online database feature, I will keep posting instructions and videos to the following link."
-			),
-		});
-
-		const deomLink = infoContainer.createEl("a", {
-			text: t("IOTO How To Guide"),
-			href: "https://airtable.com/appKL3zMp0cOYFdJk/shrbQQvVwAMI4sI0Y",
-		});
-
-		deomLink.setAttr("target", "_blank");
-		deomLink.setAttr("rel", "noopener noreferrer");
-	}
-
-	private renderLicensePurchaseInfo(containerEl: HTMLElement) {
-		const licenseContainer = containerEl.createDiv({
-			cls: "ioto-license-container",
-		});
-		licenseContainer.createEl("p", {
-			text: t("LicensePurchaseInfo"),
-		});
-		licenseContainer.createEl("p", {
-			text: t("AuthorWechatID"),
-		});
 	}
 }
