@@ -123,4 +123,5 @@ export default {
 	"Updating...": "正在更新...",
 	Updated: "更新完成",
 	"Restart Obsidian to apply changes": "重启 Obsidian 以应用更改",
+	"Install IOTO Dashboard": "安装IOTO仪表板",
 };

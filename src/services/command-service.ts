@@ -202,6 +202,17 @@ export class CommandService {
 					);
 				},
 			});
+
+			this.addCommand({
+				id: "install-ioto-dashboard-from-github",
+				name: t("Install IOTO Dashboard"),
+				callback: async () => {
+					await GithubService.installPluginFrom(
+						this.app,
+						"https://github.com/shawndotty/ioto-dashboard",
+					);
+				},
+			});
 		}
 	}
 

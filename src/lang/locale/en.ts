@@ -137,4 +137,5 @@ export default {
 	"Updating...": "Updating...",
 	Updated: "Updated",
 	"Restart Obsidian to apply changes": "Restart Obsidian to apply changes",
+	"Install IOTO Dashboard": "Install IOTO Dashboard",
 };
