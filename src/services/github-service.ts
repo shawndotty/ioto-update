@@ -101,38 +101,43 @@ export class GithubService {
 				);
 			}
 
-			new Notice(
-				`${t("Plugin")} "${manifest.name}" (${pluginId}) ${t(
-					"installed/updated successfully",
-				)}!`,
-			);
-
-			// 尝试重新加载插件：先禁用再启用
+			// 尝试重新加载插件：先刷新 manifest，然后禁用再启用
 			// @ts-ignore 访问内部 API
 			const plugins = app.plugins;
-			if (plugins && plugins.plugins && plugins.plugins[pluginId]) {
-				const plugin = plugins.plugins[pluginId];
-				try {
-					// 禁用插件
+			try {
+				if (plugins) {
+					// 1. 刷新插件列表，确保 Obsidian 识别到新下载的插件
 					// @ts-ignore
-					await plugins.disablePlugin(pluginId);
-					// 启用插件
+					if (plugins.loadManifests) {
+						// @ts-ignore
+						await plugins.loadManifests();
+					}
+
+					// 2. 如果插件已启用，先禁用
+					// @ts-ignore
+					if (plugins.enabledPlugins.has(pluginId)) {
+						// @ts-ignore
+						await plugins.disablePlugin(pluginId);
+					}
+
+					// 3. 启用插件
 					// @ts-ignore
 					await plugins.enablePlugin(pluginId);
+
 					new Notice(
-						`${t("Plugin")} "${manifest.name}" ${t("reloaded")}`,
+						`${t("Plugin")} "${manifest.name}" ${t(
+							"installed/updated successfully",
+						)} & ${t("reloaded")}`,
 					);
-				} catch (reloadErr) {
-					console.warn(t("Automatic reload failed") + ":", reloadErr);
-					new Notice(t("Plugin updated but reload failed"));
 				}
-			} else {
-				// 插件未启用，提示用户手动启用
+			} catch (reloadErr) {
+				console.warn(t("Automatic reload failed") + ":", reloadErr);
 				new Notice(
 					`${t("Plugin")} "${manifest.name}" ${t(
-						"Plugin installed, please enable manually",
+						"installed/updated successfully",
 					)}`,
 				);
+				new Notice(t("Plugin updated but reload failed"));
 			}
 
 			// Optional: Reload plugins logic could go here, but usually requires user action or internal API usage
