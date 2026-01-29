@@ -8,6 +8,7 @@ export class GithubService {
 	 * @param repoUrl The GitHub repository URL (e.g., https://github.com/owner/repo)
 	 */
 	static async installPluginFrom(app: App, repoUrl: string): Promise<void> {
+		let notice: Notice | null = null;
 		try {
 			// 1. Parse the repository URL
 			const repoInfo = this.parseRepoUrl(repoUrl);
@@ -17,11 +18,15 @@ export class GithubService {
 			}
 			const { owner, repo } = repoInfo;
 
-			new Notice(`${t("Checking for updates from")} ${owner}/${repo}...`);
+			notice = new Notice(
+				`${t("Checking for updates from")} ${owner}/${repo}...`,
+				0,
+			);
 
 			// 2. Fetch the latest release
 			const release = await this.getLatestRelease(owner, repo);
 			if (!release) {
+				if (notice) notice.hide();
 				new Notice(t("No release found for this repository"));
 				return;
 			}
@@ -38,6 +43,7 @@ export class GithubService {
 			);
 
 			if (!manifestAsset || !mainJsAsset) {
+				if (notice) notice.hide();
 				new Notice(
 					t(
 						"Release is missing manifest.json or main.js. Cannot install.",
@@ -45,6 +51,9 @@ export class GithubService {
 				);
 				return;
 			}
+
+			if (notice) notice.hide();
+			notice = new Notice(t("Downloading manifest"), 0);
 
 			// 4. Download manifest first to get the plugin ID
 			const manifestContent = await this.downloadAsset(
@@ -54,6 +63,7 @@ export class GithubService {
 			const pluginId = manifest.id;
 
 			if (!pluginId) {
+				if (notice) notice.hide();
 				new Notice(t("Invalid manifest.json: missing 'id' field"));
 				return;
 			}
@@ -65,11 +75,15 @@ export class GithubService {
 				installedPlugin &&
 				installedPlugin.version === manifest.version
 			) {
+				if (notice) notice.hide();
 				new Notice(
 					`${t("Plugin")} "${manifest.name}" ${t("is already up to date")}`,
 				);
 				return;
 			}
+
+			if (notice) notice.hide();
+			notice = new Notice(t("Downloading plugin files"), 0);
 
 			// 5. Download other files
 			const mainJsContent = await this.downloadAsset(
@@ -100,6 +114,8 @@ export class GithubService {
 					stylesCssContent,
 				);
 			}
+
+			if (notice) notice.hide();
 
 			// 尝试重新加载插件：先刷新 manifest，然后禁用再启用
 			// @ts-ignore 访问内部 API
@@ -143,6 +159,7 @@ export class GithubService {
 			// Optional: Reload plugins logic could go here, but usually requires user action or internal API usage
 			// For now, just notifying is safer.
 		} catch (error) {
+			if (notice) notice.hide();
 			console.error(t("Failed to install plugin") + ":", error);
 			new Notice(t("Check console for details"));
 		}
