@@ -182,7 +182,9 @@ export class CommandService {
 			) {
 				this.addCommand({
 					id: "install-ssg-from-github",
-					name: t("Install Sync Scripts Generator"),
+					name:
+						t("Install Sync Scripts Generator") +
+						t("PluginIndicator"),
 					callback: async () => {
 						await GithubService.installPluginFrom(
 							this.app,
@@ -194,7 +196,9 @@ export class CommandService {
 
 			this.addCommand({
 				id: "install-itg-from-github",
-				name: t("Install IOTO Template Generator"),
+				name:
+					t("Install IOTO Template Generator") + t("PluginIndicator"),
+				icon: "puzzle", // 使用 lucide 的 puzzle 图标代表插件
 				callback: async () => {
 					await GithubService.installPluginFrom(
 						this.app,
@@ -205,7 +209,7 @@ export class CommandService {
 
 			this.addCommand({
 				id: "install-ioto-dashboard-from-github",
-				name: t("Install IOTO Dashboard"),
+				name: t("Install IOTO Dashboard") + t("PluginIndicator"),
 				callback: async () => {
 					await GithubService.installPluginFrom(
 						this.app,

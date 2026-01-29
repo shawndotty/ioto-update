@@ -140,4 +140,5 @@ export default {
 	"Install IOTO Dashboard": "Install IOTO Dashboard",
 	"Downloading manifest": "Downloading manifest...",
 	"Downloading plugin files": "Downloading plugin files...",
+	PluginIndicator: " (Plugin)",
 };
