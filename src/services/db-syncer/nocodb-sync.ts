@@ -45,7 +45,7 @@ export class NocoDBSync {
 
 	async fetchRecordsFromSource(
 		sourceTable: NocoDBTable,
-		filterRecordsByDate: boolean = false
+		filterRecordsByDate: boolean = false,
 	): Promise<any[]> {
 		let fields = [
 			this.fetchTitleFrom,
@@ -66,12 +66,12 @@ export class NocoDBSync {
 						return item;
 					};
 					suggester.open();
-				}
+				},
 			);
 			if (dateFilterOption && dateFilterOption.value !== 99) {
 				const formula = `{UpdatedIn} <= ${dateFilterOption.value}`;
 				dateFilterFormula = `&filterByFormula=${encodeURIComponent(
-					formula
+					formula,
 				)}`;
 			}
 		}
@@ -127,6 +127,10 @@ export class NocoDBSync {
 						Authorization: "Bearer " + this.nocodb.apiKey,
 					},
 				});
+				if (!response.ok && response.status === 401) {
+					new Notice(t("API_Token_Invalid"), 2000);
+					return [];
+				}
 				// fetch 返回的是 Response 对象，需要调用 .json() 获取数据
 				const responseData = await response.json();
 				// 为了兼容后续代码，将 responseData 包装成与 requestUrl 返回结构一致
@@ -159,7 +163,7 @@ export class NocoDBSync {
 
 	async createOrUpdateNotesInOBFromSourceTable(
 		sourceTable: NocoDBTable,
-		filterRecordsByDate: boolean = false
+		filterRecordsByDate: boolean = false,
 	): Promise<void> {
 		const { vault } = this.app;
 
@@ -176,7 +180,7 @@ export class NocoDBSync {
 					// 使用正则表达式匹配 MyIOTO-数字-数字-数字 的格式并替换为 MyIOTO
 					note.SubFolder = note.SubFolder.replace(
 						/MyIOTO-\d{1,2}-\d-\d/g,
-						"MyIOTO"
+						"MyIOTO",
 					);
 				}
 				return note;
@@ -185,8 +189,8 @@ export class NocoDBSync {
 
 		new Notice(
 			`${t("There are")} ${notesToCreateOrUpdate.length} ${t(
-				"files needed to be updated or created."
-			)}`
+				"files needed to be updated or created.",
+			)}`,
 		);
 
 		let configDirModified = 0;
@@ -195,7 +199,7 @@ export class NocoDBSync {
 			let toDealNotes = notesToCreateOrUpdate.slice(0, 10);
 			for (let note of toDealNotes) {
 				let validFileName = this.convertToValidFileName(
-					note.Title || ""
+					note.Title || "",
 				);
 				let folderPath =
 					directoryRootPath +
@@ -226,8 +230,8 @@ export class NocoDBSync {
 			if (notesToCreateOrUpdate.length) {
 				new Notice(
 					`${t("There are")} ${notesToCreateOrUpdate.length} ${t(
-						"files needed to be processed."
-					)}`
+						"files needed to be processed.",
+					)}`,
 				);
 			} else {
 				new Notice(t("All Finished."));

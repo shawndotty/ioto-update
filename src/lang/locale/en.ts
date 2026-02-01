@@ -141,4 +141,5 @@ export default {
 	"Downloading manifest": "Downloading manifest...",
 	"Downloading plugin files": "Downloading plugin files...",
 	PluginIndicator: " (Plugin)",
+	API_Token_Invalid: "API Token Invalid",
 };

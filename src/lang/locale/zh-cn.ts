@@ -126,4 +126,6 @@ export default {
 	"Install IOTO Dashboard": "安装IOTO仪表板",
 	"Downloading manifest": "正在下载清单文件...",
 	"Downloading plugin files": "正在下载插件文件...",
+	PluginIndicator: " (插件)",
+	API_Token_Invalid: "API密钥无效",
 };
