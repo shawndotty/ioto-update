@@ -27,6 +27,27 @@ If your plugin does not need CSS, delete this file.
     color: var(--text-accent);
 }
 
+/* Validation Input Styles */
+input.valid-input {
+	border-color: #4caf50; /* Green */
+	color: #4caf50;
+}
+
+input.invalid-input {
+	border-color: #ff5252; /* Red */
+	color: #ff5252;
+}
+
+.valid-text {
+	color: #4caf50; /* Green */
+	margin-left: 10px;
+	font-weight: bold;
+}
+
+.loading-text {
+	margin-left: 10px;
+}
+
 .ioto-license-container {
     background-color: var(--background-secondary);
     padding: 20px;
