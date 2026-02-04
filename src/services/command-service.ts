@@ -13,6 +13,7 @@ import { Utils } from "../utils";
 import { TemplaterService } from "./templater-service";
 import { ApiService } from "./api-service";
 import { GithubService } from "./github-service";
+import { GiteeService } from "./gitee-service";
 
 interface CommandConfig {
 	id: string;
@@ -186,10 +187,23 @@ export class CommandService {
 						t("Install Sync Scripts Generator") +
 						t("PluginIndicator"),
 					callback: async () => {
-						await GithubService.installPluginFrom(
-							this.app,
-							"https://github.com/shawndotty/sync-script-generator",
-						);
+						const source =
+							this.settings.pluginDownloadSource || "github";
+						const repoUrl =
+							source === "github"
+								? "https://github.com/shawndotty/sync-script-generator"
+								: "https://gitee.com/johnnylearns/sync-script-generator";
+						if (source === "github") {
+							await GithubService.installPluginFrom(
+								this.app,
+								repoUrl,
+							);
+						} else {
+							await GiteeService.installPluginFrom(
+								this.app,
+								repoUrl,
+							);
+						}
 					},
 				});
 			}
@@ -200,10 +214,20 @@ export class CommandService {
 					t("Install IOTO Template Generator") + t("PluginIndicator"),
 				icon: "puzzle", // 使用 lucide 的 puzzle 图标代表插件
 				callback: async () => {
-					await GithubService.installPluginFrom(
-						this.app,
-						"https://github.com/shawndotty/ioto-template-generator",
-					);
+					const source =
+						this.settings.pluginDownloadSource || "github";
+					const repoUrl =
+						source === "github"
+							? "https://github.com/shawndotty/ioto-template-generator"
+							: "https://gitee.com/johnnylearns/ioto-template-generator";
+					if (source === "github") {
+						await GithubService.installPluginFrom(
+							this.app,
+							repoUrl,
+						);
+					} else {
+						await GiteeService.installPluginFrom(this.app, repoUrl);
+					}
 				},
 			});
 
@@ -211,10 +235,20 @@ export class CommandService {
 				id: "install-ioto-dashboard-from-github",
 				name: t("Install IOTO Dashboard") + t("PluginIndicator"),
 				callback: async () => {
-					await GithubService.installPluginFrom(
-						this.app,
-						"https://github.com/shawndotty/ioto-dashboard",
-					);
+					const source =
+						this.settings.pluginDownloadSource || "github";
+					const repoUrl =
+						source === "github"
+							? "https://github.com/shawndotty/ioto-dashboard"
+							: "https://gitee.com/johnnylearns/ioto-dashboard";
+					if (source === "github") {
+						await GithubService.installPluginFrom(
+							this.app,
+							repoUrl,
+						);
+					} else {
+						await GiteeService.installPluginFrom(this.app, repoUrl);
+					}
 				},
 			});
 		}

@@ -95,6 +95,7 @@ export default {
 	"Install IOTO Template Generator": "安装IOTO模板生成器",
 	"Install Sync Scripts Generator": "安装同步脚本生成器",
 	"Invalid GitHub repository URL": "无效的 GitHub 仓库链接",
+	"Invalid Gitee repository URL": "无效的 Gitee 仓库链接",
 	"Checking for updates from": "正在检查更新：",
 	"No release found for this repository": "未找到此仓库的发布版本",
 	"Release is missing manifest.json or main.js. Cannot install.":
@@ -128,4 +129,8 @@ export default {
 	"Downloading plugin files": "正在下载插件文件...",
 	PluginIndicator: " (插件)",
 	API_Token_Invalid: "API密钥无效",
+	"Plugin Download Source": "插件下载源",
+	"Choose where to download and update plugins": "选择插件下载和更新的源",
+	GitHub: "GitHub",
+	Gitee: "Gitee",
 };

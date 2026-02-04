@@ -29,6 +29,7 @@ export interface IOTOUpdateSettings {
 	iotoRunningLanguage: string;
 	userEmail: string;
 	userChecked: boolean;
+	pluginDownloadSource?: "github" | "gitee";
 	iotoFrameworkPath: string;
 	userAPIKey: string;
 	userSyncSettingUrl: string;

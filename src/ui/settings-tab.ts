@@ -3,6 +3,7 @@ import { t } from "../lang/helpers";
 import IOTOUpdate from "../main";
 import { Utils } from "../utils";
 import { GithubService } from "../services/github-service";
+import { GiteeService } from "../services/gitee-service";
 import { IOTOUpdateSettings } from "../types";
 import { FolderSuggest } from "./pickers/folder-picker";
 import { TabbedSettings } from "./tabbed-settings";
@@ -53,7 +54,11 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		}
 
 		const currentVersion = this.plugin.manifest.version;
-		const repoUrl = "https://github.com/shawndotty/ioto-update";
+		const source = this.plugin.settings.pluginDownloadSource || "github";
+		const repoUrl =
+			source === "github"
+				? "https://github.com/shawndotty/ioto-update"
+				: "https://gitee.com/johnnylearns/ioto-update";
 
 		const versionSetting = new Setting(containerEl)
 			.setName(`${t("Current Version")}: ${currentVersion}`)
@@ -66,7 +71,13 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 						button.setDisabled(true);
 
 						const latestVersion =
-							await GithubService.getLatestPluginVersion(repoUrl);
+							source === "github"
+								? await GithubService.getLatestPluginVersion(
+										repoUrl,
+									)
+								: await GiteeService.getLatestPluginVersion(
+										repoUrl,
+									);
 
 						button.setDisabled(false);
 
@@ -95,10 +106,17 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 									.onClick(async () => {
 										b.setButtonText(t("Updating..."));
 										b.setDisabled(true);
-										await GithubService.installPluginFrom(
-											this.app,
-											repoUrl,
-										);
+										if (source === "github") {
+											await GithubService.installPluginFrom(
+												this.app,
+												repoUrl,
+											);
+										} else {
+											await GiteeService.installPluginFrom(
+												this.app,
+												repoUrl,
+											);
+										}
 										b.setButtonText(t("Updated"));
 										b.setDisabled(false);
 										new Notice(
@@ -155,6 +173,23 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			validClass: "valid-email",
 			invalidClass: "invalid-email",
 		});
+
+		new Setting(containerEl)
+			.setName(t("Plugin Download Source"))
+			.setDesc(t("Choose where to download and update plugins"))
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("github", t("GitHub"))
+					.addOption("gitee", t("Gitee"))
+					.setValue(
+						this.plugin.settings.pluginDownloadSource || "github",
+					)
+					.onChange(async (value) => {
+						this.plugin.settings.pluginDownloadSource =
+							value as any;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		// 创建一个用于设置 iotoRunningLanguage 的单选设置
 		new Setting(containerEl)

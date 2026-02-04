@@ -107,6 +107,7 @@ export default {
 	"Install IOTO Template Generator": "Install IOTO Template Generator",
 	"Install Sync Scripts Generator": "Install Sync Scripts Generator",
 	"Invalid GitHub repository URL": "Invalid GitHub repository URL",
+	"Invalid Gitee repository URL": "Invalid Gitee repository URL",
 	"Checking for updates from": "Checking for updates from",
 	"No release found for this repository":
 		"No release found for this repository",
@@ -142,4 +143,9 @@ export default {
 	"Downloading plugin files": "Downloading plugin files...",
 	PluginIndicator: " (Plugin)",
 	API_Token_Invalid: "API Token Invalid",
+	"Plugin Download Source": "Plugin Download Source",
+	"Choose where to download and update plugins":
+		"Choose where to download and update plugins",
+	GitHub: "GitHub",
+	Gitee: "Gitee",
 };
