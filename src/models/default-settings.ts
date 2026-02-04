@@ -6,7 +6,7 @@ export const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	updateAPIKeyIsValid: false,
 	iotoRunningLanguage: "ob",
 	userEmail: "",
-	pluginDownloadSource: "github",
+	pluginDownloadSource: "gitee",
 	iotoFrameworkPath: t("IOTOFrameworPath"),
 	userAPIKey: "",
 	userSyncSettingUrl: "",
