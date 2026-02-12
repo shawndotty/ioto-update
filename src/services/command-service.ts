@@ -335,8 +335,11 @@ export class CommandService {
 				} catch (error) {
 					new Notice(error.message);
 				} finally {
+					if (id === "get-setting-plugin") {
+						await this.enableIotoSettingsPlugin();
+					}
 					if (reloadOB) {
-						setTimeout(() => {
+						setTimeout(async () => {
 							this.app.commands.executeCommandById("app:reload");
 						}, 1000);
 						return;
@@ -400,6 +403,7 @@ export class CommandService {
 					).length;
 
 					if (successfulUpdates === updateTasks.length) {
+						await this.enableIotoSettingsPlugin();
 						this.app.commands.executeCommandById("app:reload");
 					}
 				});
@@ -414,5 +418,26 @@ export class CommandService {
 		setTimeout(() => {
 			this.app.commands.executeCommandById("app:reload");
 		}, 1000);
+	}
+
+	private async enableIotoSettingsPlugin() {
+		const plugins = (this.app as any).plugins;
+		const pluginId = "ioto-settings";
+
+		try {
+			if (plugins.loadManifests) {
+				await plugins.loadManifests();
+			}
+
+			// 2. 如果插件已启用，先禁用
+			if (plugins.enabledPlugins.has(pluginId)) {
+				await plugins.disablePlugin(pluginId);
+			}
+
+			// 3. 启用插件
+			await plugins.enablePlugin(pluginId);
+		} catch (e) {
+			console.error("Failed to enable ioto-settings", e);
+		}
 	}
 }
