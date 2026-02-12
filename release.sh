@@ -21,12 +21,6 @@ if [ -n "$(git status --porcelain)" ]; then
     exit 1
 fi
 
-# Update version in package.json
-npm version "$VERSION" --no-git-tag-version
-
-# Run version bump script (updates manifest.json and versions.json)
-npm run version
-
 # Build the project
 echo "📦 Building..."
 npm run build
