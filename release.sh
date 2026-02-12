@@ -26,8 +26,8 @@ echo "📦 Building..."
 npm run build
 
 # Commit version changes
-git add -A
-git commit -m "Release v$VERSION"
+# git add -A
+# git commit -m "Release v$VERSION"
 
 # Create git tag
 git tag -a "v$VERSION" -m "Release $VERSION"
