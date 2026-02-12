@@ -335,11 +335,11 @@ export class CommandService {
 				} catch (error) {
 					new Notice(error.message);
 				} finally {
-					if (id === "get-setting-plugin") {
-						await this.enableIotoSettingsPlugin();
-					}
 					if (reloadOB) {
 						setTimeout(async () => {
+							if (id === "get-setting-plugin") {
+								await this.enableIotoSettingsPlugin();
+							}
 							this.app.commands.executeCommandById("app:reload");
 						}, 1000);
 						return;
@@ -429,13 +429,40 @@ export class CommandService {
 				await plugins.loadManifests();
 			}
 
-			// 2. 如果插件已启用，先禁用
-			if (plugins.enabledPlugins.has(pluginId)) {
-				await plugins.disablePlugin(pluginId);
+			// Manually update the in-memory Set to prevent overwrite on exit
+			// This ensures that if Obsidian saves settings on unload, it includes our plugin
+			if (plugins.enabledPlugins instanceof Set) {
+				plugins.enabledPlugins.add(pluginId);
+			} else if (Array.isArray(plugins.enabledPlugins)) {
+				if (!plugins.enabledPlugins.includes(pluginId)) {
+					plugins.enabledPlugins.push(pluginId);
+				}
 			}
 
-			// 3. 启用插件
-			await plugins.enablePlugin(pluginId);
+			// Manually write to disk to ensure "Load on Start" sees it
+			// This bypasses potential race conditions with app.plugins.enablePlugin()
+			const configDir = this.app.vault.configDir;
+			const pluginsConfigPath = `${configDir}/community-plugins.json`;
+			const adapter = this.app.vault.adapter;
+
+			let enabledPluginsList: string[] = [];
+			if (await adapter.exists(pluginsConfigPath)) {
+				const content = await adapter.read(pluginsConfigPath);
+				try {
+					enabledPluginsList = JSON.parse(content);
+				} catch (e) {
+					console.error("Failed to parse community-plugins.json", e);
+					enabledPluginsList = [];
+				}
+			}
+
+			if (!enabledPluginsList.includes(pluginId)) {
+				enabledPluginsList.push(pluginId);
+				await adapter.write(
+					pluginsConfigPath,
+					JSON.stringify(enabledPluginsList, null, 2),
+				);
+			}
 		} catch (e) {
 			console.error("Failed to enable ioto-settings", e);
 		}
