@@ -14,6 +14,7 @@ import { TemplaterService } from "./templater-service";
 import { ApiService } from "./api-service";
 import { GithubService } from "./github-service";
 import { GiteeService } from "./gitee-service";
+import { PluginService } from "./plugin-service";
 
 interface CommandConfig {
 	id: string;
@@ -421,48 +422,10 @@ export class CommandService {
 	}
 
 	private async enableIotoSettingsPlugin() {
-		const plugins = (this.app as any).plugins;
 		const pluginId = "ioto-settings";
 
 		try {
-			if (plugins.loadManifests) {
-				await plugins.loadManifests();
-			}
-
-			// Manually update the in-memory Set to prevent overwrite on exit
-			// This ensures that if Obsidian saves settings on unload, it includes our plugin
-			if (plugins.enabledPlugins instanceof Set) {
-				plugins.enabledPlugins.add(pluginId);
-			} else if (Array.isArray(plugins.enabledPlugins)) {
-				if (!plugins.enabledPlugins.includes(pluginId)) {
-					plugins.enabledPlugins.push(pluginId);
-				}
-			}
-
-			// Manually write to disk to ensure "Load on Start" sees it
-			// This bypasses potential race conditions with app.plugins.enablePlugin()
-			const configDir = this.app.vault.configDir;
-			const pluginsConfigPath = `${configDir}/community-plugins.json`;
-			const adapter = this.app.vault.adapter;
-
-			let enabledPluginsList: string[] = [];
-			if (await adapter.exists(pluginsConfigPath)) {
-				const content = await adapter.read(pluginsConfigPath);
-				try {
-					enabledPluginsList = JSON.parse(content);
-				} catch (e) {
-					console.error("Failed to parse community-plugins.json", e);
-					enabledPluginsList = [];
-				}
-			}
-
-			if (!enabledPluginsList.includes(pluginId)) {
-				enabledPluginsList.push(pluginId);
-				await adapter.write(
-					pluginsConfigPath,
-					JSON.stringify(enabledPluginsList, null, 2),
-				);
-			}
+			await PluginService.reloadAndEnablePlugin(this.app, pluginId);
 		} catch (e) {
 			console.error("Failed to enable ioto-settings", e);
 		}

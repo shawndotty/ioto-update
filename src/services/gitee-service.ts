@@ -1,5 +1,6 @@
 import { App, Notice, requestUrl } from "obsidian";
 import { t } from "../lang/helpers";
+import { PluginService } from "./plugin-service";
 
 export class GiteeService {
 	/**
@@ -17,7 +18,10 @@ export class GiteeService {
 			}
 			const { owner, repo } = repoInfo;
 
-			notice = new Notice(`${t("Checking for updates from")} ${owner}/${repo}...`, 0);
+			notice = new Notice(
+				`${t("Checking for updates from")} ${owner}/${repo}...`,
+				0,
+			);
 
 			const release = await this.getLatestRelease(owner, repo);
 			if (!release) {
@@ -34,14 +38,20 @@ export class GiteeService {
 				return;
 			}
 
-			const manifestAsset = assets.find((a: any) => a.name === "manifest.json");
+			const manifestAsset = assets.find(
+				(a: any) => a.name === "manifest.json",
+			);
 			const mainJsAsset = assets.find((a: any) => a.name === "main.js");
-			const stylesCssAsset = assets.find((a: any) => a.name === "styles.css");
+			const stylesCssAsset = assets.find(
+				(a: any) => a.name === "styles.css",
+			);
 
 			if (!manifestAsset || !mainJsAsset) {
 				if (notice) notice.hide();
 				new Notice(
-					t("Release is missing manifest.json or main.js. Cannot install."),
+					t(
+						"Release is missing manifest.json or main.js. Cannot install.",
+					),
 				);
 				return;
 			}
@@ -49,7 +59,12 @@ export class GiteeService {
 			if (notice) notice.hide();
 			notice = new Notice(t("Downloading manifest"), 0);
 
-			const manifestContent = await this.downloadAssetFromGitee(manifestAsset, owner, repo, release);
+			const manifestContent = await this.downloadAssetFromGitee(
+				manifestAsset,
+				owner,
+				repo,
+				release,
+			);
 			const manifest = JSON.parse(manifestContent);
 			const pluginId = manifest.id;
 
@@ -61,19 +76,34 @@ export class GiteeService {
 
 			// @ts-ignore
 			const installedPlugin = app.plugins.manifests?.[pluginId];
-			if (installedPlugin && installedPlugin.version === manifest.version) {
+			if (
+				installedPlugin &&
+				installedPlugin.version === manifest.version
+			) {
 				if (notice) notice.hide();
-				new Notice(`${t("Plugin")} "${manifest.name}" ${t("is already up to date")}`);
+				new Notice(
+					`${t("Plugin")} "${manifest.name}" ${t("is already up to date")}`,
+				);
 				return;
 			}
 
 			if (notice) notice.hide();
 			notice = new Notice(t("Downloading plugin files"), 0);
 
-			const mainJsContent = await this.downloadAssetFromGitee(mainJsAsset, owner, repo, release);
+			const mainJsContent = await this.downloadAssetFromGitee(
+				mainJsAsset,
+				owner,
+				repo,
+				release,
+			);
 			let stylesCssContent = "";
 			if (stylesCssAsset) {
-				stylesCssContent = await this.downloadAssetFromGitee(stylesCssAsset, owner, repo, release);
+				stylesCssContent = await this.downloadAssetFromGitee(
+					stylesCssAsset,
+					owner,
+					repo,
+					release,
+				);
 			}
 
 			const pluginDir = `${app.vault.configDir}/plugins/${pluginId}`;
@@ -85,7 +115,10 @@ export class GiteeService {
 			await adapter.write(`${pluginDir}/manifest.json`, manifestContent);
 			await adapter.write(`${pluginDir}/main.js`, mainJsContent);
 			if (stylesCssContent) {
-				await adapter.write(`${pluginDir}/styles.css`, stylesCssContent);
+				await adapter.write(
+					`${pluginDir}/styles.css`,
+					stylesCssContent,
+				);
 			}
 
 			if (notice) notice.hide();
@@ -95,18 +128,8 @@ export class GiteeService {
 			const plugins = app.plugins;
 			try {
 				if (plugins) {
-					// @ts-ignore
-					if (plugins.loadManifests) {
-						// @ts-ignore
-						await plugins.loadManifests();
-					}
-					// @ts-ignore
-					if (plugins.enabledPlugins.has(pluginId)) {
-						// @ts-ignore
-						await plugins.disablePlugin(pluginId);
-					}
-					// @ts-ignore
-					await plugins.enablePlugin(pluginId);
+					await PluginService.reloadAndEnablePlugin(app, pluginId);
+
 					new Notice(
 						`${t("Plugin")} "${manifest.name}" ${t("installed/updated successfully")} & ${t("reloaded")}`,
 					);
@@ -125,14 +148,25 @@ export class GiteeService {
 		}
 	}
 
-	static async getLatestPluginVersion(repoUrl: string): Promise<string | null> {
+	static async getLatestPluginVersion(
+		repoUrl: string,
+	): Promise<string | null> {
 		try {
 			const repoInfo = this.parseRepoUrl(repoUrl);
 			if (!repoInfo) return null;
-			const release = await this.getLatestRelease(repoInfo.owner, repoInfo.repo);
+			const release = await this.getLatestRelease(
+				repoInfo.owner,
+				repoInfo.repo,
+			);
 			if (!release) return null;
-			const assets = await this.getReleaseAssets(repoInfo.owner, repoInfo.repo, release.id);
-			const manifestAsset = assets?.find((a: any) => a.name === "manifest.json");
+			const assets = await this.getReleaseAssets(
+				repoInfo.owner,
+				repoInfo.repo,
+				release.id,
+			);
+			const manifestAsset = assets?.find(
+				(a: any) => a.name === "manifest.json",
+			);
 			if (!manifestAsset) return null;
 			const manifestContent = await this.downloadAssetFromGitee(
 				manifestAsset,
@@ -164,7 +198,10 @@ export class GiteeService {
 		return null;
 	}
 
-	private static async getLatestRelease(owner: string, repo: string): Promise<any> {
+	private static async getLatestRelease(
+		owner: string,
+		repo: string,
+	): Promise<any> {
 		const url = `https://gitee.com/api/v5/repos/${owner}/${repo}/releases/latest`;
 		try {
 			const response = await requestUrl({
@@ -183,7 +220,11 @@ export class GiteeService {
 		return null;
 	}
 
-	private static async getReleaseAssets(owner: string, repo: string, releaseId: number): Promise<any[] | null> {
+	private static async getReleaseAssets(
+		owner: string,
+		repo: string,
+		releaseId: number,
+	): Promise<any[] | null> {
 		const url = `https://gitee.com/api/v5/repos/${owner}/${repo}/releases/${releaseId}/attach_files`;
 		try {
 			const response = await requestUrl({
@@ -202,7 +243,12 @@ export class GiteeService {
 		return null;
 	}
 
-	private static async downloadAssetFromGitee(asset: any, owner: string, repo: string, release: any): Promise<string> {
+	private static async downloadAssetFromGitee(
+		asset: any,
+		owner: string,
+		repo: string,
+		release: any,
+	): Promise<string> {
 		// 优先使用 API 返回的下载链接
 		const url =
 			asset.browser_download_url ||
@@ -212,7 +258,9 @@ export class GiteeService {
 				? `https://gitee.com/${owner}/${repo}/releases/download/${release.tag_name}/${asset.name}`
 				: undefined);
 		if (!url) {
-			throw new Error("No available download url for asset: " + asset?.name);
+			throw new Error(
+				"No available download url for asset: " + asset?.name,
+			);
 		}
 		const response = await requestUrl({
 			url,
@@ -221,4 +269,3 @@ export class GiteeService {
 		return response.text;
 	}
 }
-

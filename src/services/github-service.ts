@@ -1,5 +1,6 @@
 import { App, Notice, requestUrl } from "obsidian";
 import { t } from "../lang/helpers";
+import { PluginService } from "./plugin-service";
 
 export class GithubService {
 	/**
@@ -122,23 +123,7 @@ export class GithubService {
 			const plugins = app.plugins;
 			try {
 				if (plugins) {
-					// 1. 刷新插件列表，确保 Obsidian 识别到新下载的插件
-					// @ts-ignore
-					if (plugins.loadManifests) {
-						// @ts-ignore
-						await plugins.loadManifests();
-					}
-
-					// 2. 如果插件已启用，先禁用
-					// @ts-ignore
-					if (plugins.enabledPlugins.has(pluginId)) {
-						// @ts-ignore
-						await plugins.disablePlugin(pluginId);
-					}
-
-					// 3. 启用插件
-					// @ts-ignore
-					await plugins.enablePlugin(pluginId);
+					await PluginService.reloadAndEnablePlugin(app, pluginId);
 
 					new Notice(
 						`${t("Plugin")} "${manifest.name}" ${t(
