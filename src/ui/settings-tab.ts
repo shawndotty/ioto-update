@@ -54,11 +54,6 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		}
 
 		const currentVersion = this.plugin.manifest.version;
-		const source = this.plugin.settings.pluginDownloadSource || "github";
-		const repoUrl =
-			source === "github"
-				? "https://github.com/shawndotty/ioto-update"
-				: "https://gitee.com/johnnylearns/ioto-update";
 
 		const versionSetting = new Setting(containerEl)
 			.setName(`${t("Current Version")}: ${currentVersion}`)
@@ -69,7 +64,13 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 					.onClick(async () => {
 						button.setButtonText(t("Checking..."));
 						button.setDisabled(true);
-
+						const source =
+							this.plugin.settings.pluginDownloadSource ||
+							"github";
+						const repoUrl =
+							source === "github"
+								? "https://github.com/shawndotty/ioto-update"
+								: "https://gitee.com/johnnylearns/ioto-update";
 						const latestVersion =
 							source === "github"
 								? await GithubService.getLatestPluginVersion(
