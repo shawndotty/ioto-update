@@ -125,6 +125,7 @@ export default {
 	Updated: "更新完成",
 	"Restart Obsidian to apply changes": "重啟 Obsidian 以應用更改",
 	"Install IOTO Dashboard": "安裝IOTO儀表板",
+	"Install IOTO Tasks Center": "安裝IOTO任務中心",
 	"Downloading manifest": "正在下載清單檔案...",
 	"Downloading plugin files": "正在下載插件檔案...",
 	PluginIndicator: " (插件)",

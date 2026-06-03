@@ -252,6 +252,27 @@ export class CommandService {
 					}
 				},
 			});
+
+			this.addCommand({
+				id: "install-ioto-tasks-center-from-github",
+				name: t("Install IOTO Tasks Center") + t("PluginIndicator"),
+				callback: async () => {
+					const source =
+						this.settings.pluginDownloadSource || "github";
+					const repoUrl =
+						source === "github"
+							? "https://github.com/shawndotty/ioto-tasks-center"
+							: "https://gitee.com/johnnylearns/ioto-tasks-center";
+					if (source === "github") {
+						await GithubService.installPluginFrom(
+							this.app,
+							repoUrl,
+						);
+					} else {
+						await GiteeService.installPluginFrom(this.app, repoUrl);
+					}
+				},
+			});
 		}
 	}
 
