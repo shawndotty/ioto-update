@@ -60,6 +60,11 @@ export interface IOTOUpdateSettings {
 			tableID: string;
 			viewID: string;
 		};
+		iotoSkills?: {
+			baseID: string;
+			tableID: string;
+			viewID: string;
+		};
 	};
 }
 

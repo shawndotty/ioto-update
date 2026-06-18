@@ -38,5 +38,10 @@ export const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 			tableID: "",
 			viewID: "",
 		},
+		iotoSkills: {
+			baseID: "",
+			tableID: "",
+			viewID: "",
+		},
 	},
 };
