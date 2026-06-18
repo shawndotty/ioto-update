@@ -15,6 +15,7 @@ import { ApiService } from "./api-service";
 import { GithubService } from "./github-service";
 import { GiteeService } from "./gitee-service";
 import { PluginService } from "./plugin-service";
+import { AIPlatformSuggester } from "../suggesters/ai-platform-suggester";
 
 interface CommandConfig {
 	id: string;
@@ -106,18 +107,6 @@ export class CommandService {
 				isPartOfAllUpdates: true,
 			},
 			{
-				id: "get-skills",
-				name: t("Update Skills"),
-				tableConfig: () => ({
-					baseID: this.settings.updateIDs.iotoSkills?.baseID || "",
-					tableID: this.settings.updateIDs.iotoSkills?.tableID || "",
-					viewID: this.settings.updateIDs.iotoSkills?.viewID || "",
-					targetFolderPath: `.claude`,
-				}),
-				reloadOB: false,
-				isPartOfAllUpdates: false,
-			},
-			{
 				id: "get-setting-plugin",
 				name: t("Update IOTO Framwork Setting Plugin"),
 				tableConfig: () => ({
@@ -171,6 +160,51 @@ export class CommandService {
 			});
 
 			this.createRunAllUpdatesCommand(commandConfigs);
+
+			this.addCommand({
+				id: "get-skills",
+				name: t("Update Skills"),
+				callback: async () => {
+					const suggester = new AIPlatformSuggester(this.app);
+					suggester.setPlaceholder(t("Select AI Agent Platform"));
+					const platform = await new Promise((resolve) => {
+						suggester.onChooseItem = (item) => {
+							resolve(item);
+							return item;
+						};
+						suggester.open();
+					});
+
+					if (!platform) {
+						new Notice(t("No platform selected"));
+						return;
+					}
+
+					const tableConfig: NocoDBTable = {
+						baseID:
+							this.settings.updateIDs.iotoSkills?.baseID || "",
+						tableID:
+							this.settings.updateIDs.iotoSkills?.tableID || "",
+						viewID:
+							this.settings.updateIDs.iotoSkills?.viewID || "",
+						targetFolderPath: (platform as any).value,
+					};
+
+					try {
+						new Notice(
+							`${t("Executing")} ${t("Update Skills")}...`,
+						);
+						await this.withDisabledTemplaterTrigger(async () => {
+							await this.executeNocoDBCommand(tableConfig);
+						});
+						new Notice(`${t("Update Skills")} ${t("completed")}`);
+					} catch (error) {
+						new Notice(
+							`${t("Update Skills")} ${t("failed")}: ${error.message}`,
+						);
+					}
+				},
+			});
 
 			this.addCommand({
 				id: "update-user-permissions",

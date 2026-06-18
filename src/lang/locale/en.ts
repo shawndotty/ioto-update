@@ -150,4 +150,10 @@ export default {
 	GitHub: "GitHub",
 	Gitee: "Gitee",
 	"Update Skills": "Update Skills",
+	TRAE: "TRAE",
+	"Claude Code": "Claude Code",
+	OpenCode: "OpenCode",
+	"OpenAI Codex": "OpenAI Codex",
+	"Select AI Agent Platform": "Select AI Agent Platform",
+	"No platform selected": "No platform selected",
 };

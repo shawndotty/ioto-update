@@ -135,4 +135,10 @@ export default {
 	GitHub: "GitHub",
 	Gitee: "Gitee",
 	"Update Skills": "更新技能",
+	TRAE: "TRAE",
+	"Claude Code": "Claude Code",
+	OpenCode: "OpenCode",
+	"OpenAI Codex": "OpenAI Codex",
+	"Select AI Agent Platform": "選擇 AI Agent 平台",
+	"No platform selected": "未選擇平台",
 };
