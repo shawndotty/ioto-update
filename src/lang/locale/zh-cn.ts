@@ -134,4 +134,5 @@ export default {
 	"Choose where to download and update plugins": "选择插件下载和更新的源",
 	GitHub: "GitHub",
 	Gitee: "Gitee",
+	"Update Skills": "更新技能",
 };

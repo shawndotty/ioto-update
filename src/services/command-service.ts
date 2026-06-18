@@ -106,6 +106,18 @@ export class CommandService {
 				isPartOfAllUpdates: true,
 			},
 			{
+				id: "get-skills",
+				name: t("Update Skills"),
+				tableConfig: () => ({
+					baseID: this.settings.updateIDs.iotoSkills?.baseID || "",
+					tableID: this.settings.updateIDs.iotoSkills?.tableID || "",
+					viewID: this.settings.updateIDs.iotoSkills?.viewID || "",
+					targetFolderPath: `.claude`,
+				}),
+				reloadOB: false,
+				isPartOfAllUpdates: false,
+			},
+			{
 				id: "get-setting-plugin",
 				name: t("Update IOTO Framwork Setting Plugin"),
 				tableConfig: () => ({

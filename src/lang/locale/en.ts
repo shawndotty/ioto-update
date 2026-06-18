@@ -149,4 +149,5 @@ export default {
 		"Choose where to download and update plugins",
 	GitHub: "GitHub",
 	Gitee: "Gitee",
+	"Update Skills": "Update Skills",
 };
