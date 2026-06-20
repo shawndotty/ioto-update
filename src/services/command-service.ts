@@ -212,7 +212,10 @@ export class CommandService {
 				callback: async () => {
 					new Notice(t("Updating User Permissions ..."));
 					await this.executeWithReload(async () => {
-						await this.apiService.getUpdateIDs();
+						const { updateIDs, userChecked } =
+							await this.apiService.getUpdateIDs();
+						this.plugin.settings.updateIDs = updateIDs;
+						this.plugin.settings.userChecked = userChecked;
 						await this.plugin.saveSettings();
 					});
 					if (this.settings.userChecked) {
