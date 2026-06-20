@@ -154,6 +154,7 @@ export default {
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",
 	"OpenAI Codex": "OpenAI Codex",
+	"Mimo Code": "Mimo Code",
 	"Select AI Agent Platform": "Select AI Agent Platform",
 	"No platform selected": "No platform selected",
 };
