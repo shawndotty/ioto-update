@@ -140,6 +140,7 @@ export default {
 	OpenCode: "OpenCode",
 	"OpenAI Codex": "OpenAI Codex",
 	"Mimo Code": "Mimo Code",
+	Hermes: "Hermes",
 	"Select AI Agent Platform": "選擇 AI Agent 平台",
 	"No platform selected": "未選擇平台",
 };
