@@ -151,6 +151,7 @@ export default {
 	Gitee: "Gitee",
 	"Update Skills": "Update Skills",
 	TRAE: "TRAE",
+	Workbuddy: "Workbuddy",
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",
 	"OpenAI Codex": "OpenAI Codex",
