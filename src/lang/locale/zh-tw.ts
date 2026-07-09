@@ -137,6 +137,7 @@ export default {
 	"Update Skills": "更新技能",
 	TRAE: "TRAE",
 	Workbuddy: "Workbuddy",
+	Codebuddy: "Codebuddy",
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",
 	"OpenAI Codex": "OpenAI Codex",
