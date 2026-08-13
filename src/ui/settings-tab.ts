@@ -107,24 +107,43 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 									.onClick(async () => {
 										b.setButtonText(t("Updating..."));
 										b.setDisabled(true);
-										if (source === "github") {
-											await GithubService.installPluginFrom(
-												this.app,
-												repoUrl,
+										try {
+											if (source === "github") {
+												await GithubService.installPluginFrom(
+													this.app,
+													repoUrl,
+													{ autoReload: false },
+												);
+											} else {
+												await GiteeService.installPluginFrom(
+													this.app,
+													repoUrl,
+													{ autoReload: false },
+												);
+											}
+											b.setButtonText(t("Updated"));
+											new Notice(
+												t(
+													"Reloading Obsidian to apply update...",
+												),
 											);
-										} else {
-											await GiteeService.installPluginFrom(
-												this.app,
-												repoUrl,
+											setTimeout(() => {
+												this.app.commands.executeCommandById(
+													"app:reload",
+												);
+											}, 500);
+										} catch (err) {
+											console.error(err);
+											b.setButtonText(
+												t("Start Update"),
+											);
+											b.setDisabled(false);
+											new Notice(
+												t(
+													"Failed to install plugin",
+												),
 											);
 										}
-										b.setButtonText(t("Updated"));
-										b.setDisabled(false);
-										new Notice(
-											t(
-												"Restart Obsidian to apply changes",
-											),
-										);
 									});
 							});
 						} else {

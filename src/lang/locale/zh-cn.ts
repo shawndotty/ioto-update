@@ -124,6 +124,8 @@ export default {
 	"Updating...": "正在更新...",
 	Updated: "更新完成",
 	"Restart Obsidian to apply changes": "重启 Obsidian 以应用更改",
+	"Reloading Obsidian to apply update...":
+		"正在重新加载 Obsidian 以应用更新...",
 	"Install IOTO Dashboard": "安装IOTO仪表板",
 	"Install IOTO Tasks Center": "安装IOTO任务中心",
 	"Downloading manifest": "正在下载清单文件...",

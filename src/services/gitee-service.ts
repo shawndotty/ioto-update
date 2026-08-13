@@ -1,14 +1,21 @@
 import { App, Notice, requestUrl } from "obsidian";
 import { t } from "../lang/helpers";
 import { PluginService } from "./plugin-service";
+import { InstallPluginOptions } from "./github-service";
 
 export class GiteeService {
 	/**
 	 * 从 Gitee 仓库地址安装或更新插件
 	 * @param app Obsidian App 实例
 	 * @param repoUrl Gitee 仓库地址（例如：https://gitee.com/owner/repo 或 owner/repo）
+	 * @param options 可选安装行为参数。
 	 */
-	static async installPluginFrom(app: App, repoUrl: string): Promise<void> {
+	static async installPluginFrom(
+		app: App,
+		repoUrl: string,
+		options: InstallPluginOptions = {},
+	): Promise<void> {
+		const { autoReload = true } = options;
 		let notice: Notice | null = null;
 		try {
 			const repoInfo = this.parseRepoUrl(repoUrl);
@@ -126,20 +133,35 @@ export class GiteeService {
 			// 尝试重新加载插件
 			// @ts-ignore
 			const plugins = app.plugins;
-			try {
-				if (plugins) {
-					await PluginService.reloadAndEnablePlugin(app, pluginId);
+			if (autoReload) {
+				try {
+					if (plugins) {
+						await PluginService.reloadAndEnablePlugin(
+							app,
+							pluginId,
+						);
 
+						new Notice(
+							`${t("Plugin")} "${manifest.name}" ${t(
+								"installed/updated successfully",
+							)} & ${t("reloaded")}`,
+						);
+					}
+				} catch (reloadErr) {
+					console.warn(t("Automatic reload failed") + ":", reloadErr);
 					new Notice(
-						`${t("Plugin")} "${manifest.name}" ${t("installed/updated successfully")} & ${t("reloaded")}`,
+						`${t("Plugin")} "${manifest.name}" ${t(
+							"installed/updated successfully",
+						)}`,
 					);
+					new Notice(t("Plugin updated but reload failed"));
 				}
-			} catch (reloadErr) {
-				console.warn(t("Automatic reload failed") + ":", reloadErr);
+			} else {
 				new Notice(
-					`${t("Plugin")} "${manifest.name}" ${t("installed/updated successfully")}`,
+					`${t("Plugin")} "${manifest.name}" ${t(
+						"installed/updated successfully",
+					)}`,
 				);
-				new Notice(t("Plugin updated but reload failed"));
 			}
 		} catch (error) {
 			if (notice) notice.hide();

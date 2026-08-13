@@ -138,6 +138,8 @@ export default {
 	"Updating...": "Updating...",
 	Updated: "Updated",
 	"Restart Obsidian to apply changes": "Restart Obsidian to apply changes",
+	"Reloading Obsidian to apply update...":
+		"Reloading Obsidian to apply update...",
 	"Install IOTO Dashboard": "Install IOTO Dashboard",
 	"Install IOTO Tasks Center": "Install IOTO Tasks Center",
 	"Downloading manifest": "Downloading manifest...",
