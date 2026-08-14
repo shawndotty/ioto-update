@@ -139,6 +139,7 @@ export default {
 	"Update Skills": "更新技能",
 	TRAE: "TRAE",
 	Workbuddy: "Workbuddy",
+	DSH: "DeepSeek Harness",
 	Codebuddy: "Codebuddy",
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",
