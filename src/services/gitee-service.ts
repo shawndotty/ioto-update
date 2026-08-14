@@ -148,7 +148,10 @@ export class GiteeService {
 						);
 					}
 				} catch (reloadErr) {
-					console.warn(t("Automatic reload failed") + ":", reloadErr);
+					console.warn(
+						t("Automatic reload failed") + ":",
+						reloadErr,
+					);
 					new Notice(
 						`${t("Plugin")} "${manifest.name}" ${t(
 							"installed/updated successfully",

@@ -3,20 +3,20 @@ import { t } from "../lang/helpers";
 import { PluginService } from "./plugin-service";
 
 export interface InstallPluginOptions {
-	/**
-	 * After installing / updating the plugin files, automatically call
-	 * PluginService.reloadAndEnablePlugin to hot-reload the plugin.
-	 *
-	 * Defaults to `true` for backward compatibility.
-	 *
-	 * Set to `false` when the caller is updating **its own** plugin and
-	 * intends to perform a full `app:reload` afterwards, otherwise the
-	 * currently open settings tab of that plugin will become blank because
-	 * disablePlugin() tears down the associated SettingTab instance from
-	 * under the settings modal.
-	 */
-	autoReload?: boolean;
-}
+		/**
+		 * After installing / updating the plugin files, automatically call
+		 * PluginService.reloadAndEnablePlugin to hot-reload the plugin.
+		 *
+		 * Defaults to `true` for backward compatibility.
+		 *
+		 * Set to `false` when the caller is updating **its own** plugin and
+		 * intends to perform a full `app:reload` afterwards, otherwise the
+		 * currently open settings tab of that plugin will become blank because
+		 * disablePlugin() tears down the associated SettingTab instance from
+		 * under the settings modal.
+		 */
+		autoReload?: boolean;
+	}
 
 export class GithubService {
 	/**
@@ -158,7 +158,10 @@ export class GithubService {
 						);
 					}
 				} catch (reloadErr) {
-					console.warn(t("Automatic reload failed") + ":", reloadErr);
+					console.warn(
+						t("Automatic reload failed") + ":",
+						reloadErr,
+					);
 					new Notice(
 						`${t("Plugin")} "${manifest.name}" ${t(
 							"installed/updated successfully",
