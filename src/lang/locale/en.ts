@@ -155,6 +155,7 @@ export default {
 	TRAE: "TRAE",
 	Workbuddy: "Workbuddy",
 	DSH: "DeepSeek Harness",
+	PI: "Pi",
 	Codebuddy: "Codebuddy",
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",

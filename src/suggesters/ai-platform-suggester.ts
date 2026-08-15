@@ -9,15 +9,16 @@ export interface AIPlatformOption {
 
 export class AIPlatformSuggester extends FuzzySuggestModal<AIPlatformOption> {
 	private options: AIPlatformOption[] = [
-		{ id: "trae", name: t("TRAE"), value: ".trae" },
 		{ id: "workbuddy", name: t("Workbuddy"), value: ".workbuddy" },
-		{ id: "dsh", name: t("DSH"), value: ".dsh" },
 		{ id: "codebuddy", name: t("Codebuddy"), value: ".codebuddy" },
+		{ id: "dsh", name: t("DSH"), value: ".dsh" },
 		{ id: "claude", name: t("Claude Code"), value: ".claude" },
-		{ id: "opencode", name: t("OpenCode"), value: ".opencode" },
 		{ id: "codex", name: t("OpenAI Codex"), value: ".agents" },
-		{ id: "mimo", name: t("Mimo Code"), value: ".mimocode" },
+		{ id: "pi", name: t("PI"), value: ".pi" },
+		{ id: "opencode", name: t("OpenCode"), value: ".opencode" },
+		{ id: "trae", name: t("TRAE"), value: ".trae" },
 		{ id: "hermes", name: t("Hermes"), value: ".hermes" },
+		{ id: "mimo", name: t("Mimo Code"), value: ".mimocode" },
 	];
 
 	getItems(): AIPlatformOption[] {
