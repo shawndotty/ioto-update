@@ -141,6 +141,7 @@ export default {
 	Workbuddy: "Workbuddy",
 	DSH: "DeepSeek Harness",
 	PI: "Pi",
+	"Oh My Pi": "Oh My Pi",
 	Codebuddy: "Codebuddy",
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",
