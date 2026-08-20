@@ -12,6 +12,7 @@ export class AIPlatformSuggester extends FuzzySuggestModal<AIPlatformOption> {
 		{ id: "workbuddy", name: t("Workbuddy"), value: ".workbuddy" },
 		{ id: "codebuddy", name: t("Codebuddy"), value: ".codebuddy" },
 		{ id: "dsh", name: t("DSH"), value: ".dsh" },
+		{ id: "qoder", name: t("Qoder"), value: ".qoder" },
 		{ id: "claude", name: t("Claude Code"), value: ".claude" },
 		{ id: "codex", name: t("OpenAI Codex"), value: ".agents" },
 		{ id: "pi", name: t("PI"), value: ".pi" },

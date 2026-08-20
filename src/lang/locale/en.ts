@@ -155,6 +155,7 @@ export default {
 	TRAE: "TRAE",
 	Workbuddy: "Workbuddy",
 	DSH: "DeepSeek Harness",
+	Qoder: "Qoder",
 	PI: "Pi",
 	"Oh My Pi": "Oh My Pi",
 	Codebuddy: "Codebuddy",
