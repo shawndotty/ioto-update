@@ -119,6 +119,22 @@ function run(cmd, args, { allowFail = false, readOnly = false } = {}) {
 	return true;
 }
 
+/**
+ * 只推送本次发版的 tag（绝不使用 --tags，避免把历史 tag 一起纳入推送）。
+ * 不加 --force 且远端已存在「同名但指向不同对象」的 tag 时，git 会拒绝并给出可读提示。
+ */
+function pushTag(remote, tag, { force = false } = {}) {
+	try {
+		run("git", ["push", ...(force ? ["--force"] : []), remote, tag]);
+	} catch (err) {
+		if (force) throw err;
+		throw new Error(
+			`推送 tag ${tag} 到 ${remote} 失败：远端可能已存在同名 tag 且指向不同对象。` +
+				`确认要覆盖请加 --force 重跑。`
+		);
+	}
+}
+
 function loadGiteeToken() {
 	if (process.env.GITEE_TOKEN && process.env.GITEE_TOKEN.trim()) {
 		return process.env.GITEE_TOKEN.trim();
@@ -323,14 +339,15 @@ async function main() {
 
 	if (opts.github) {
 		run("git", ["push", "origin", branch]);
-		run("git", ["push", "origin", tag]);
+		pushTag("origin", tag, { force: opts.force });
 		log.ok(`已推送 ${tag} 到 origin`);
 	}
 
 	if (opts.gitee && giteeToken) {
 		ensureGiteeRemote();
-		run("git", ["push", GITEE_REMOTE, branch, "--tags"]);
-		log.ok(`已推送 ${branch} 与 tags 到 ${GITEE_REMOTE}`);
+		run("git", ["push", GITEE_REMOTE, branch]);
+		pushTag(GITEE_REMOTE, tag, { force: opts.force });
+		log.ok(`已推送 ${branch} 与 ${tag} 到 ${GITEE_REMOTE}`);
 	}
 
 	// 6. GitHub Release
