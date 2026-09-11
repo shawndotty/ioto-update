@@ -24,4 +24,8 @@ data.json
 # Exclude zip files
 *.zip
 
+# Exclude release tokens
+.env
+.gitee-token
+
 src/constants.ts

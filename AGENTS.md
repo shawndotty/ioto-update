@@ -81,7 +81,8 @@ ioto-update/
 ├── manifest.json                    # Obsidian 插件清单（id、版本、权限）
 ├── esbuild.config.mjs               # esbuild 配置
 ├── tsconfig.json                    # TypeScript 配置
-├── release.sh                       # 发布脚本
+├── scripts/
+│   └── deploy-release.mjs           # 一键发版脚本（npm run build:deploy）
 └── styles.css                       # 插件自定义样式
 ```
 
@@ -290,7 +291,7 @@ Gitee 版本见 [gitee-service.ts](file:///Users/johnnylearns/Documents/Sync/IOT
 
 1. **版本号升级**：`npm run version` 会同步更新 `package.json`、`manifest.json`、`versions.json`
 2. **构建**：`npm run build` 生成 `main.js`（压缩，无 sourcemap）+ `styles.css` 保持原样
-3. **发布**：使用 `release.sh` 脚本通常包含：构建、打包 main.js / manifest.json / styles.css 到 Release、推送到 GitHub/Gitee
+3. **发布**：`npm run build:deploy` 一键完成构建、打包（main.js / manifest.json / styles.css + ioto-update.zip）、打 tag，并发布到 GitHub 与 Gitee；GitHub 复用已登录的 `gh`，Gitee 需环境变量 `GITEE_TOKEN` 或本地 `.gitee-token` 文件。支持 `--dry-run` / `--github-only` / `--gitee-only` / `--force` / `--notes`。
 4. **自更新测试**：在 Obsidian 设置面板点击「Check for Updates」，会从当前 `pluginDownloadSource` 的 Release 下载比较 manifest.json 版本号，落后则自动更新并热加载
 
 ---
