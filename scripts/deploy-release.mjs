@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * ioto-update 一键发版脚本
+ * Obsidian 插件「GitHub + Gitee」一键发版脚本（可跨插件复用）
  *
- * 用法（在 .obsidian/plugins/ioto-update 目录下执行）：
+ * 用法（在任意插件目录下执行）：
  *   npm run build:deploy                     # 构建 + 打包 + 打 tag + 发布到 GitHub 与 Gitee
  *   npm run build:deploy -- --dry-run        # 只预览将执行的命令，不产生任何副作用
  *   npm run build:deploy -- --github-only    # 只发 GitHub
@@ -30,16 +30,11 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const GITHUB_REPO = "shawndotty/ioto-update";
+// ---- 平台常量（全库统一，无需修改） ----
 const GITEE_OWNER = "johnnylearns";
-const GITEE_REPO = "ioto-update";
 const GITEE_API = "https://gitee.com/api/v5";
 const GITEE_REMOTE = "gitee";
-const GITEE_REMOTE_URL = `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}.git`;
-
 const ASSETS = ["main.js", "manifest.json", "styles.css"];
-const ZIP_NAME = "ioto-update.zip";
-const UPLOAD_FILES = [...ASSETS, ZIP_NAME];
 
 const NPM = process.platform === "win32" ? "npm.cmd" : "npm";
 
@@ -61,6 +56,27 @@ const log = {
 	err: (m) => console.error(`  ${c.red}✗${c.reset} ${m}`),
 	cmd: (m) => console.log(`  ${c.dim}$ ${m}${c.reset}`),
 };
+
+// ---- 仓库标识（自动从 origin 推导，无需修改） ----
+// 命名以 git remote 的仓库名为准，不要用 manifest.json 的 id
+// （例如 slidesrup 的 id 是 slides-rup，会推导出错误的仓库名）。
+const ORIGIN_URL = capture("git", ["remote", "get-url", "origin"]) || "";
+const GH = ORIGIN_URL.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/);
+if (!GH) {
+	log.err(
+		`无法从 origin 推导 GitHub 仓库：${ORIGIN_URL || "（本地未配置 origin）"}\n` +
+			`    本脚本要求 origin 指向 GitHub，请先执行：\n` +
+			`      git remote add origin git@github.com:shawndotty/<仓库名>.git\n` +
+			`    （GitHub 仓库名即插件目录名，不要使用 manifest.json 的 id）`
+	);
+	process.exit(1);
+}
+const GITHUB_REPO = `${GH[1]}/${GH[2]}`;
+const GITEE_REPO = GH[2];
+const GITEE_REMOTE_URL = `https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}.git`;
+const ZIP_NAME = `${GITEE_REPO}.zip`;
+const UPLOAD_FILES = [...ASSETS, ZIP_NAME];
+const PLUGIN_NAME = GITEE_REPO;
 
 let DRY = false;
 
@@ -228,7 +244,7 @@ async function giteeUploadAsset(token, releaseId, fileName) {
 }
 
 function printHelp() {
-	console.log(`ioto-update 一键发版
+	console.log(`${PLUGIN_NAME} 一键发版（GitHub + Gitee）
 
 用法:
   npm run build:deploy [-- 选项]
@@ -330,7 +346,7 @@ async function main() {
 	const notes = buildReleaseNotes(opts, version);
 	log.info(notes.split("\n").slice(0, 5).join("\n  ") + (notes.split("\n").length > 5 ? "\n  ..." : ""));
 
-	const notesFile = path.join(os.tmpdir(), `ioto-update-notes-${version}.md`);
+	const notesFile = path.join(os.tmpdir(), `${PLUGIN_NAME}-notes-${version}.md`);
 	if (!DRY) writeFileSync(notesFile, `${notes}\n`);
 
 	// 5. 打 tag 并推送
