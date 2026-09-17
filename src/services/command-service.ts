@@ -238,7 +238,7 @@ export class CommandService {
 						t("PluginIndicator"),
 					callback: async () => {
 						const source =
-							this.settings.pluginDownloadSource || "github";
+							this.settings.pluginDownloadSource || "gitee";
 						const repoUrl =
 							source === "github"
 								? "https://github.com/shawndotty/sync-script-generator"
@@ -265,7 +265,7 @@ export class CommandService {
 				icon: "puzzle", // 使用 lucide 的 puzzle 图标代表插件
 				callback: async () => {
 					const source =
-						this.settings.pluginDownloadSource || "github";
+						this.settings.pluginDownloadSource || "gitee";
 					const repoUrl =
 						source === "github"
 							? "https://github.com/shawndotty/ioto-template-generator"
@@ -286,7 +286,7 @@ export class CommandService {
 				name: t("Install IOTO Dashboard") + t("PluginIndicator"),
 				callback: async () => {
 					const source =
-						this.settings.pluginDownloadSource || "github";
+						this.settings.pluginDownloadSource || "gitee";
 					const repoUrl =
 						source === "github"
 							? "https://github.com/shawndotty/ioto-dashboard"
@@ -307,11 +307,32 @@ export class CommandService {
 				name: t("Install IOTO Tasks Center") + t("PluginIndicator"),
 				callback: async () => {
 					const source =
-						this.settings.pluginDownloadSource || "github";
+						this.settings.pluginDownloadSource || "gitee";
 					const repoUrl =
 						source === "github"
 							? "https://github.com/shawndotty/ioto-tasks-center"
 							: "https://gitee.com/johnnylearns/ioto-tasks-center";
+					if (source === "github") {
+						await GithubService.installPluginFrom(
+							this.app,
+							repoUrl,
+						);
+					} else {
+						await GiteeService.installPluginFrom(this.app, repoUrl);
+					}
+				},
+			});
+
+			this.addCommand({
+				id: "install-text-popup-from-github",
+				name: t("Install Text Popup") + t("PluginIndicator"),
+				callback: async () => {
+					const source =
+						this.settings.pluginDownloadSource || "gitee";
+					const repoUrl =
+						source === "github"
+							? "https://github.com/shawndotty/text-popup"
+							: "https://gitee.com/johnnylearns/text-popup";
 					if (source === "github") {
 						await GithubService.installPluginFrom(
 							this.app,

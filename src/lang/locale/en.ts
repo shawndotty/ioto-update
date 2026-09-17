@@ -142,6 +142,7 @@ export default {
 		"Reloading Obsidian to apply update...",
 	"Install IOTO Dashboard": "Install IOTO Dashboard",
 	"Install IOTO Tasks Center": "Install IOTO Tasks Center",
+	"Install Text Popup": "Install Text Popup",
 	"Downloading manifest": "Downloading manifest...",
 	"Downloading plugin files": "Downloading plugin files...",
 	PluginIndicator: " (Plugin)",

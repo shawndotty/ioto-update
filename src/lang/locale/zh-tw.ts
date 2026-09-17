@@ -128,6 +128,7 @@ export default {
 		"正在重新載入 Obsidian 以應用更新...",
 	"Install IOTO Dashboard": "安裝IOTO儀表板",
 	"Install IOTO Tasks Center": "安裝IOTO任務中心",
+	"Install Text Popup": "安裝Text Popup",
 	"Downloading manifest": "正在下載清單檔案...",
 	"Downloading plugin files": "正在下載插件檔案...",
 	PluginIndicator: " (插件)",
