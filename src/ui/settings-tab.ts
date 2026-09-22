@@ -277,9 +277,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 	private renderPluginsCenter(containerEl: HTMLElement) {
 
-		containerEl.createEl("p", {
-			text: t("IOTO Plugins Center Description"),
-		});
+		new Setting(containerEl).setDesc(t("IOTO Plugins Center Description"));
 
 		const source = this.plugin.settings.pluginDownloadSource || "github";
 		const viewID =
