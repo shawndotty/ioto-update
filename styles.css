@@ -65,6 +65,7 @@ input.invalid-input {
     border-top: 1px solid var(--background-modifier-border);
     padding-top: 12px;
     padding-bottom: 12px;
+    align-items: center;
 }
 
 .ioto-plugins-list .setting-item:first-child {

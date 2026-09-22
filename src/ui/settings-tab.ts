@@ -276,10 +276,6 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 	}
 
 	private renderPluginsCenter(containerEl: HTMLElement) {
-		containerEl.createEl("h2", {
-			text: t("Plugins Center"),
-			cls: "my-plugin-title",
-		});
 
 		containerEl.createEl("p", {
 			text: t("IOTO Plugins Center Description"),
