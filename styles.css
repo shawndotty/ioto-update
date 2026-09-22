@@ -70,3 +70,46 @@ input.invalid-input {
 .ioto-plugins-list .setting-item:first-child {
     border-top: none;
 }
+
+/* Plugins Center — repo link icons */
+.ioto-repo-icons {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.ioto-repo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: var(--font-ui-smaller);
+    text-decoration: none;
+    border: 1px solid var(--background-modifier-border);
+    color: var(--text-muted);
+    transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ioto-repo-link:hover {
+    color: var(--text-normal);
+    border-color: var(--interactive-accent);
+    background-color: var(--background-modifier-hover);
+}
+
+.ioto-repo-link svg {
+    flex-shrink: 0;
+}
+
+.ioto-repo-link--github {
+    color: var(--text-muted);
+}
+
+.ioto-repo-link--gitee {
+    color: #C71D23;
+}
+
+.ioto-repo-link--gitee:hover {
+    color: #C71D23;
+    border-color: #C71D23;
+}
