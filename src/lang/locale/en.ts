@@ -167,4 +167,32 @@ export default {
 	Hermes: "Hermes",
 	"Select AI Agent Platform": "Select AI Agent Platform",
 	"No platform selected": "No platform selected",
+	"Plugins Center": "Plugins Center",
+	"IOTO Plugins Center Description":
+		"Browse, install and update IOTO auxiliary plugins.",
+	"Not installed": "Not installed",
+	"Installed": "Installed",
+	Install: "Install",
+	Update: "Update",
+	"Latest version": "Latest version",
+	"Installed version": "Installed version",
+	"Failed to check plugin info": "Failed to check plugin info",
+	Retry: "Retry",
+	"Installing...": "Installing...",
+	"Check for updates": "Check for updates",
+	"IOTO Template Generator": "IOTO Template Generator",
+	"IOTO Template Generator.desc":
+		"Generate IOTO templates visually and export them to your vault.",
+	"Sync Scripts Generator": "Sync Scripts Generator",
+	"Sync Scripts Generator.desc":
+		"Generate sync configuration scripts for IOTO's online database sync feature.",
+	"IOTO Dashboard": "IOTO Dashboard",
+	"IOTO Dashboard.desc":
+		"A dashboard to overview your IOTO framework usage and statistics.",
+	"IOTO Tasks Center": "IOTO Tasks Center",
+	"IOTO Tasks Center.desc":
+		"Manage and track your tasks within the IOTO framework.",
+	"Text Popup": "Text Popup",
+	"Text Popup.desc":
+		"Popup selected text in a floating window for distraction-free reading.",
 };

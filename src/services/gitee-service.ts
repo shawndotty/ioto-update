@@ -5,6 +5,32 @@ import { InstallPluginOptions } from "./github-service";
 
 export class GiteeService {
 	/**
+	 * 远程 manifest 信息的内存缓存，避免频繁请求 Gitee API。
+	 * key 为 repoUrl，value 为 { data, timestamp }。
+	 */
+	private static manifestCache = new Map<
+		string,
+		{
+			data: { id: string; name: string; version: string };
+			timestamp: number;
+		}
+	>();
+
+	/** 缓存有效期：10 分钟 */
+	private static readonly CACHE_TTL = 10 * 60 * 1000;
+
+	/**
+	 * 清除指定仓库的 manifest 缓存；若不传 repoUrl 则清除全部。
+	 */
+	static clearManifestCache(repoUrl?: string) {
+		if (repoUrl) {
+			this.manifestCache.delete(repoUrl);
+		} else {
+			this.manifestCache.clear();
+		}
+	}
+
+	/**
 	 * 从 Gitee 仓库地址安装或更新插件
 	 * @param app Obsidian App 实例
 	 * @param repoUrl Gitee 仓库地址（例如：https://gitee.com/owner/repo 或 owner/repo）
@@ -173,38 +199,119 @@ export class GiteeService {
 		}
 	}
 
-	static async getLatestPluginVersion(
+	static async getLatestPluginManifest(
 		repoUrl: string,
-	): Promise<string | null> {
+	): Promise<{ id: string; name: string; version: string } | null> {
+		// 优先读取缓存，未过期则直接返回
+		const cached = this.manifestCache.get(repoUrl);
+		if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+			return cached.data;
+		}
+
 		try {
 			const repoInfo = this.parseRepoUrl(repoUrl);
 			if (!repoInfo) return null;
-			const release = await this.getLatestRelease(
-				repoInfo.owner,
-				repoInfo.repo,
-			);
-			if (!release) return null;
-			const assets = await this.getReleaseAssets(
-				repoInfo.owner,
-				repoInfo.repo,
-				release.id,
-			);
-			const manifestAsset = assets?.find(
-				(a: any) => a.name === "manifest.json",
-			);
-			if (!manifestAsset) return null;
-			const manifestContent = await this.downloadAssetFromGitee(
-				manifestAsset,
-				repoInfo.owner,
-				repoInfo.repo,
-				release,
-			);
+
+			let manifestContent: string | null = null;
+
+			// 方案 1：优先尝试 Gitee API 获取最新 release 的 manifest
+			try {
+				const release = await this.getLatestRelease(
+					repoInfo.owner,
+					repoInfo.repo,
+				);
+				if (release) {
+					const assets = await this.getReleaseAssets(
+						repoInfo.owner,
+						repoInfo.repo,
+						release.id,
+					);
+					const manifestAsset = assets?.find(
+						(a: any) => a.name === "manifest.json",
+					);
+					if (manifestAsset) {
+						manifestContent = await this.downloadAssetFromGitee(
+							manifestAsset,
+							repoInfo.owner,
+							repoInfo.repo,
+							release,
+						);
+					}
+				}
+			} catch (apiErr) {
+				console.warn(
+					"Gitee API failed, trying releases page fallback:",
+					apiErr,
+				);
+			}
+
+			// 方案 2：API 失败（如限流）时，抓取 releases 页面获取最新 tag，
+			// 再从该 release 下载 manifest.json，确保拿到的是真正发布的版本
+			if (!manifestContent) {
+				const tag = await this.getLatestReleaseTagFromPage(
+					repoInfo.owner,
+					repoInfo.repo,
+				);
+				if (tag) {
+					const releaseUrl = `https://gitee.com/${repoInfo.owner}/${repoInfo.repo}/releases/download/${tag}/manifest.json`;
+					manifestContent = await this.downloadRawText(releaseUrl);
+				}
+			}
+
+			// 方案 3：以上均失败时，最后 fallback 到 master 分支的 raw manifest.json
+			if (!manifestContent) {
+				const rawUrl = `https://gitee.com/${repoInfo.owner}/${repoInfo.repo}/raw/master/manifest.json`;
+				manifestContent = await this.downloadRawText(rawUrl);
+			}
+
+			if (!manifestContent) return null;
 			const manifest = JSON.parse(manifestContent);
-			return manifest.version;
+			if (!manifest || !manifest.id) return null;
+
+			const result = {
+				id: manifest.id,
+				name: manifest.name || manifest.id,
+				version: manifest.version,
+			};
+			// 写入缓存
+			this.manifestCache.set(repoUrl, {
+				data: result,
+				timestamp: Date.now(),
+			});
+			return result;
 		} catch (error) {
-			console.error("Failed to check for updates:", error);
+			console.error("Failed to fetch latest plugin manifest:", error);
 			return null;
 		}
+	}
+
+	/**
+	 * 抓取 Gitee releases 页面 HTML，解析出最新 release 的 tag。
+	 * Gitee 不提供类似 GitHub 的 releases/latest/download 重定向链接，
+	 * 此方法作为 API 限流时的替代方案，避免直接使用 master 分支（可能不是发布版本）。
+	 */
+	private static async getLatestReleaseTagFromPage(
+		owner: string,
+		repo: string,
+	): Promise<string | null> {
+		try {
+			const url = `https://gitee.com/${owner}/${repo}/releases`;
+			const html = await this.downloadRawText(url);
+			if (!html) return null;
+			// releases 页面中第一个 releases/download/{tag}/ 即为最新版本
+			const match = html.match(/releases\/download\/([^\/"'<>\s]+)\//);
+			return match ? match[1] : null;
+		} catch (e) {
+			console.error("Failed to parse Gitee releases page:", e);
+			return null;
+		}
+	}
+
+	static async getLatestPluginVersion(
+		repoUrl: string,
+	): Promise<string | null> {
+		const manifest = await this.getLatestPluginManifest(repoUrl);
+		return manifest ? manifest.version : null;
 	}
 
 	private static parseRepoUrl(
@@ -292,5 +399,23 @@ export class GiteeService {
 			method: "GET",
 		});
 		return response.text;
+	}
+
+	/**
+	 * 直接下载文本文件内容（用于 fallback 到 raw URL）。
+	 */
+	private static async downloadRawText(url: string): Promise<string | null> {
+		try {
+			const response = await requestUrl({
+				url,
+				method: "GET",
+			});
+			if (response.status === 200) {
+				return response.text;
+			}
+		} catch (e) {
+			console.error("Error downloading raw text:", e);
+		}
+		return null;
 	}
 }

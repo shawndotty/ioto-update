@@ -55,3 +55,18 @@ input.invalid-input {
     text-align: center;
     margin: 20px 0;
 }
+
+/* Plugins Center */
+.ioto-plugins-list {
+    margin-top: 12px;
+}
+
+.ioto-plugins-list .setting-item {
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+
+.ioto-plugins-list .setting-item:first-child {
+    border-top: none;
+}

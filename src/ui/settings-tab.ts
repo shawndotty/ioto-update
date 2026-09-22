@@ -4,9 +4,26 @@ import IOTOUpdate from "../main";
 import { Utils } from "../utils";
 import { GithubService } from "../services/github-service";
 import { GiteeService } from "../services/gitee-service";
+import {
+	IOTO_PLUGINS,
+	IOTOPluginEntry,
+	isSSGViewIDAllowed,
+} from "../services/plugin-registry";
 import { IOTOUpdateSettings } from "../types";
 import { FolderSuggest } from "./pickers/folder-picker";
 import { TabbedSettings } from "./tabbed-settings";
+
+interface PluginStatus {
+	state:
+		| "loading"
+		| "not-installed"
+		| "installed"
+		| "update-available"
+		| "error";
+	pluginId?: string;
+	installedVersion?: string;
+	latestVersion?: string;
+}
 
 export class IOTOUpdateSettingTab extends PluginSettingTab {
 	plugin: IOTOUpdate;
@@ -38,6 +55,10 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		tabbedSettings.addTab(t("IOTO_TOTURIALS"), (content: HTMLElement) =>
 			this.renderIOTOToturialsSettings(content),
+		);
+
+		tabbedSettings.addTab(t("Plugins Center"), (content: HTMLElement) =>
+			this.renderPluginsCenter(content),
 		);
 	}
 
@@ -251,6 +272,205 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			"ioto-toturials-iframe-container",
 			"https://airtable.com/embed/appKL3zMp0cOYFdJk/shrbQQvVwAMI4sI0Y?backgroundColor=cyan&viewControls=on",
 		);
+	}
+
+	private renderPluginsCenter(containerEl: HTMLElement) {
+		containerEl.createEl("h2", {
+			text: t("Plugins Center"),
+			cls: "my-plugin-title",
+		});
+
+		containerEl.createEl("p", {
+			text: t("IOTO Plugins Center Description"),
+		});
+
+		const source = this.plugin.settings.pluginDownloadSource || "github";
+		const viewID =
+			this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID;
+
+		const list = containerEl.createDiv("ioto-plugins-list");
+
+		IOTO_PLUGINS.forEach((entry) => {
+			// 同步脚本生成器仅对特定 viewID 用户开放，与命令面板逻辑保持一致
+			if (entry.requireViewID && !isSSGViewIDAllowed(viewID)) {
+				return;
+			}
+
+			const setting = new Setting(list)
+				.setName(t(entry.nameKey))
+				.setDesc(`${t(entry.descKey)} — ${t("Checking...")}`);
+
+			// 异步加载插件状态后刷新当前 Setting 行
+			this.loadPluginStatus(entry, source).then((status) => {
+				this.updatePluginSetting(setting, entry, status, source);
+			});
+		});
+	}
+
+	private async loadPluginStatus(
+		entry: IOTOPluginEntry,
+		source: string,
+	): Promise<PluginStatus> {
+		const repoUrl =
+			source === "github" ? entry.githubUrl : entry.giteeUrl;
+		const service =
+			source === "github" ? GithubService : GiteeService;
+
+		const manifest = await service.getLatestPluginManifest(repoUrl);
+		if (!manifest) {
+			return { state: "error" };
+		}
+
+		const installed = this.app.plugins.manifests[manifest.id];
+		if (!installed) {
+			return {
+				state: "not-installed",
+				pluginId: manifest.id,
+				latestVersion: manifest.version,
+			};
+		}
+
+		const cmp = Utils.compareVersions(
+			installed.version,
+			manifest.version,
+		);
+		if (cmp < 0) {
+			return {
+				state: "update-available",
+				pluginId: manifest.id,
+				installedVersion: installed.version,
+				latestVersion: manifest.version,
+			};
+		}
+
+		return {
+			state: "installed",
+			pluginId: manifest.id,
+			installedVersion: installed.version,
+			latestVersion: manifest.version,
+		};
+	}
+
+	private updatePluginSetting(
+		setting: Setting,
+		entry: IOTOPluginEntry,
+		status: PluginStatus,
+		source: string,
+	) {
+		// 清空已有按钮
+		setting.controlEl.empty();
+
+		const baseDesc = t(entry.descKey);
+		let desc = baseDesc;
+
+		switch (status.state) {
+			case "error":
+				desc = `${baseDesc} — ${t("Failed to check plugin info")}`;
+				setting.addButton((b) =>
+					b
+						.setButtonText(t("Retry"))
+						.onClick(() =>
+							this.refreshPluginStatus(setting, entry, source),
+						),
+				);
+				break;
+
+			case "not-installed":
+				desc = `${baseDesc} — ${t("Not installed")} (${t(
+					"Latest version",
+				)}: v${status.latestVersion})`;
+				setting.addButton((b) =>
+					b
+						.setButtonText(t("Install"))
+						.setCta()
+						.onClick(() =>
+							this.installPlugin(setting, entry, source),
+						),
+				);
+				break;
+
+			case "installed":
+				desc = `${baseDesc} — ${t("Installed")} v${
+					status.installedVersion
+				} (${t("Latest version")}: v${status.latestVersion})`;
+				setting.addButton((b) =>
+					b
+						.setButtonText(t("Check for updates"))
+						.onClick(() =>
+							this.refreshPluginStatus(setting, entry, source),
+						),
+				);
+				break;
+
+			case "update-available":
+				desc = `${baseDesc} — ${t(
+					"Update available",
+				)}: v${status.installedVersion} → v${status.latestVersion}`;
+				setting.addButton((b) =>
+					b
+						.setButtonText(t("Update"))
+						.setCta()
+						.onClick(() =>
+							this.installPlugin(setting, entry, source),
+						),
+				);
+				break;
+		}
+
+		setting.setDesc(desc);
+	}
+
+	private refreshPluginStatus(
+		setting: Setting,
+		entry: IOTOPluginEntry,
+		source: string,
+	) {
+		// 手动刷新时先清除该插件的缓存，强制重新请求
+		const repoUrl =
+			source === "github" ? entry.githubUrl : entry.giteeUrl;
+		if (source === "github") {
+			GithubService.clearManifestCache(repoUrl);
+		} else {
+			GiteeService.clearManifestCache(repoUrl);
+		}
+
+		setting.controlEl.empty();
+		setting.setDesc(`${t(entry.descKey)} — ${t("Checking...")}`);
+		this.loadPluginStatus(entry, source).then((status) =>
+			this.updatePluginSetting(setting, entry, status, source),
+		);
+	}
+
+	private async installPlugin(
+		setting: Setting,
+		entry: IOTOPluginEntry,
+		source: string,
+	) {
+		const repoUrl =
+			source === "github" ? entry.githubUrl : entry.giteeUrl;
+
+		setting.controlEl.empty();
+		setting.addButton((b) =>
+			b.setButtonText(t("Installing...")).setDisabled(true),
+		);
+
+		try {
+			if (source === "github") {
+				await GithubService.installPluginFrom(this.app, repoUrl, {
+					autoReload: true,
+				});
+			} else {
+				await GiteeService.installPluginFrom(this.app, repoUrl, {
+					autoReload: true,
+				});
+			}
+		} catch (err) {
+			console.error("Failed to install plugin", err);
+			new Notice(t("Failed to install plugin"));
+		}
+
+		// 安装完成后重新检测状态并刷新 UI
+		this.refreshPluginStatus(setting, entry, source);
 	}
 
 	private renderIframeSettings(

@@ -16,6 +16,7 @@ import { GithubService } from "./github-service";
 import { GiteeService } from "./gitee-service";
 import { PluginService } from "./plugin-service";
 import { AIPlatformSuggester } from "../suggesters/ai-platform-suggester";
+import { IOTO_PLUGINS, isSSGViewIDAllowed } from "./plugin-registry";
 
 interface CommandConfig {
 	id: string;
@@ -227,7 +228,7 @@ export class CommandService {
 			});
 
 			if (
-				["viwZvtQy1GDWu00sA", "viwwopZSx1IGoTiJE"].includes(
+				isSSGViewIDAllowed(
 					this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID,
 				)
 			) {
@@ -237,23 +238,7 @@ export class CommandService {
 						t("Install Sync Scripts Generator") +
 						t("PluginIndicator"),
 					callback: async () => {
-						const source =
-							this.settings.pluginDownloadSource || "gitee";
-						const repoUrl =
-							source === "github"
-								? "https://github.com/shawndotty/sync-script-generator"
-								: "https://gitee.com/johnnylearns/sync-script-generator";
-						if (source === "github") {
-							await GithubService.installPluginFrom(
-								this.app,
-								repoUrl,
-							);
-						} else {
-							await GiteeService.installPluginFrom(
-								this.app,
-								repoUrl,
-							);
-						}
+						await this.installPluginByKey("sync-script-generator");
 					},
 				});
 			}
@@ -264,20 +249,7 @@ export class CommandService {
 					t("Install IOTO Template Generator") + t("PluginIndicator"),
 				icon: "puzzle", // 使用 lucide 的 puzzle 图标代表插件
 				callback: async () => {
-					const source =
-						this.settings.pluginDownloadSource || "gitee";
-					const repoUrl =
-						source === "github"
-							? "https://github.com/shawndotty/ioto-template-generator"
-							: "https://gitee.com/johnnylearns/ioto-template-generator";
-					if (source === "github") {
-						await GithubService.installPluginFrom(
-							this.app,
-							repoUrl,
-						);
-					} else {
-						await GiteeService.installPluginFrom(this.app, repoUrl);
-					}
+					await this.installPluginByKey("ioto-template-generator");
 				},
 			});
 
@@ -285,20 +257,7 @@ export class CommandService {
 				id: "install-ioto-dashboard-from-github",
 				name: t("Install IOTO Dashboard") + t("PluginIndicator"),
 				callback: async () => {
-					const source =
-						this.settings.pluginDownloadSource || "gitee";
-					const repoUrl =
-						source === "github"
-							? "https://github.com/shawndotty/ioto-dashboard"
-							: "https://gitee.com/johnnylearns/ioto-dashboard";
-					if (source === "github") {
-						await GithubService.installPluginFrom(
-							this.app,
-							repoUrl,
-						);
-					} else {
-						await GiteeService.installPluginFrom(this.app, repoUrl);
-					}
+					await this.installPluginByKey("ioto-dashboard");
 				},
 			});
 
@@ -306,20 +265,7 @@ export class CommandService {
 				id: "install-ioto-tasks-center-from-github",
 				name: t("Install IOTO Tasks Center") + t("PluginIndicator"),
 				callback: async () => {
-					const source =
-						this.settings.pluginDownloadSource || "gitee";
-					const repoUrl =
-						source === "github"
-							? "https://github.com/shawndotty/ioto-tasks-center"
-							: "https://gitee.com/johnnylearns/ioto-tasks-center";
-					if (source === "github") {
-						await GithubService.installPluginFrom(
-							this.app,
-							repoUrl,
-						);
-					} else {
-						await GiteeService.installPluginFrom(this.app, repoUrl);
-					}
+					await this.installPluginByKey("ioto-tasks-center");
 				},
 			});
 
@@ -327,20 +273,7 @@ export class CommandService {
 				id: "install-text-popup-from-github",
 				name: t("Install Text Popup") + t("PluginIndicator"),
 				callback: async () => {
-					const source =
-						this.settings.pluginDownloadSource || "gitee";
-					const repoUrl =
-						source === "github"
-							? "https://github.com/shawndotty/text-popup"
-							: "https://gitee.com/johnnylearns/text-popup";
-					if (source === "github") {
-						await GithubService.installPluginFrom(
-							this.app,
-							repoUrl,
-						);
-					} else {
-						await GiteeService.installPluginFrom(this.app, repoUrl);
-					}
+					await this.installPluginByKey("text-popup");
 				},
 			});
 		}
@@ -519,6 +452,26 @@ export class CommandService {
 			await PluginService.reloadAndEnablePlugin(this.app, pluginId);
 		} catch (e) {
 			console.error("Failed to enable ioto-settings", e);
+		}
+	}
+
+	/**
+	 * 根据插件注册表中的 key 安装对应的 IOTO 辅助插件。
+	 * 下载源由 settings.pluginDownloadSource 决定（github / gitee）。
+	 */
+	private async installPluginByKey(key: string): Promise<void> {
+		const entry = IOTO_PLUGINS.find((p) => p.key === key);
+		if (!entry) {
+			new Notice(`Unknown plugin: ${key}`);
+			return;
+		}
+		const source = this.settings.pluginDownloadSource || "gitee";
+		const repoUrl =
+			source === "github" ? entry.githubUrl : entry.giteeUrl;
+		if (source === "github") {
+			await GithubService.installPluginFrom(this.app, repoUrl);
+		} else {
+			await GiteeService.installPluginFrom(this.app, repoUrl);
 		}
 	}
 }

@@ -20,6 +20,70 @@ export interface InstallPluginOptions {
 
 export class GithubService {
 	/**
+	 * 远程 manifest 信息的内存缓存，避免频繁请求 GitHub API 触发限流。
+	 * key 为 repoUrl，value 为 { data, timestamp }。
+	 */
+	private static manifestCache = new Map<
+		string,
+		{
+			data: { id: string; name: string; version: string };
+			timestamp: number;
+		}
+	>();
+
+	/** 缓存有效期：10 分钟 */
+	private static readonly CACHE_TTL = 10 * 60 * 1000;
+
+	/**
+	 * 清除指定仓库的 manifest 缓存；若不传 repoUrl 则清除全部。
+	 */
+	static clearManifestCache(repoUrl?: string) {
+		if (repoUrl) {
+			this.manifestCache.delete(repoUrl);
+		} else {
+			this.manifestCache.clear();
+		}
+	}
+
+	static async getLatestPluginManifest(
+		repoUrl: string,
+	): Promise<{ id: string; name: string; version: string } | null> {
+		// 优先读取缓存，未过期则直接返回
+		const cached = this.manifestCache.get(repoUrl);
+		if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+			return cached.data;
+		}
+
+		try {
+			const repoInfo = this.parseRepoUrl(repoUrl);
+			if (!repoInfo) return null;
+
+			// 直接通过 release 下载 URL 获取最新 manifest.json，
+			// 不经过 GitHub API，避免触发 60 次/小时的未认证限流。
+			// URL 格式：https://github.com/owner/repo/releases/latest/download/manifest.json
+			const manifestUrl = `https://github.com/${repoInfo.owner}/${repoInfo.repo}/releases/latest/download/manifest.json`;
+			const manifestContent = await this.downloadAsset(manifestUrl);
+			const manifest = JSON.parse(manifestContent);
+			if (!manifest || !manifest.id) return null;
+
+			const result = {
+				id: manifest.id,
+				name: manifest.name || manifest.id,
+				version: manifest.version,
+			};
+			// 写入缓存
+			this.manifestCache.set(repoUrl, {
+				data: result,
+				timestamp: Date.now(),
+			});
+			return result;
+		} catch (error) {
+			console.error("Failed to fetch latest plugin manifest:", error);
+			return null;
+		}
+	}
+
+	/**
 	 * Installs or updates a plugin from a GitHub repository URL.
 	 * @param app The Obsidian App instance
 	 * @param repoUrl The GitHub repository URL (e.g., https://github.com/owner/repo)
@@ -92,7 +156,6 @@ export class GithubService {
 			}
 
 			// Check if plugin is already installed and up to date
-			// @ts-ignore
 			const installedPlugin = app.plugins.manifests?.[pluginId];
 			if (
 				installedPlugin &&
@@ -189,29 +252,8 @@ export class GithubService {
 	static async getLatestPluginVersion(
 		repoUrl: string,
 	): Promise<string | null> {
-		try {
-			const repoInfo = this.parseRepoUrl(repoUrl);
-			if (!repoInfo) return null;
-			const release = await this.getLatestRelease(
-				repoInfo.owner,
-				repoInfo.repo,
-			);
-			if (!release) return null;
-
-			const manifestAsset = release.assets.find(
-				(a: any) => a.name === "manifest.json",
-			);
-			if (!manifestAsset) return null;
-
-			const manifestContent = await this.downloadAsset(
-				manifestAsset.browser_download_url,
-			);
-			const manifest = JSON.parse(manifestContent);
-			return manifest.version;
-		} catch (error) {
-			console.error("Failed to check for updates:", error);
-			return null;
-		}
+		const manifest = await this.getLatestPluginManifest(repoUrl);
+		return manifest ? manifest.version : null;
 	}
 
 	private static parseRepoUrl(

@@ -10,6 +10,14 @@ declare module "obsidian" {
 			plugins: {
 				[key: string]: any;
 			};
+			manifests: {
+				[key: string]: {
+					id: string;
+					name: string;
+					version: string;
+					[k: string]: any;
+				};
+			};
 		};
 		dom: {
 			appContainerEl: HTMLElement;
