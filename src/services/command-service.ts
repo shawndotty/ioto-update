@@ -276,6 +276,46 @@ export class CommandService {
 					await this.installPluginByKey("text-popup");
 				},
 			});
+
+			this.addCommand({
+				id: "install-my-text-tools-from-github",
+				name: t("Install My Text Tools") + t("PluginIndicator"),
+				callback: async () => {
+					await this.installPluginByKey("my-text-tools");
+				},
+			});
+
+			this.addCommand({
+				id: "install-slidesrup-from-github",
+				name: t("Install SlidesRup") + t("PluginIndicator"),
+				callback: async () => {
+					await this.installPluginByKey("slidesrup");
+				},
+			});
+
+			this.addCommand({
+				id: "install-airtable-fetcher-from-github",
+				name: t("Install Airtable Fetcher") + t("PluginIndicator"),
+				callback: async () => {
+					await this.installPluginByKey("obsidian-airtable-fetcher");
+				},
+			});
+
+			this.addCommand({
+				id: "install-feishu-fetcher-from-github",
+				name: t("Install Feishu Fetcher") + t("PluginIndicator"),
+				callback: async () => {
+					await this.installPluginByKey("obsidian-feishu-fetcher");
+				},
+			});
+
+			this.addCommand({
+				id: "install-vika-fetcher-from-github",
+				name: t("Install Vika Fetcher") + t("PluginIndicator"),
+				callback: async () => {
+					await this.installPluginByKey("obsidian-vika-fetcher");
+				},
+			});
 		}
 	}
 
