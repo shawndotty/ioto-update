@@ -102,15 +102,12 @@ input.invalid-input {
     display: block;
 }
 
-.ioto-repo-link--github {
+.ioto-repo-link--github,
+.ioto-repo-link--gitee {
     color: var(--text-muted);
 }
 
-.ioto-repo-link--gitee {
-    color: #C71D23;
-}
-
+.ioto-repo-link--github:hover,
 .ioto-repo-link--gitee:hover {
-    color: #C71D23;
-    border-color: #C71D23;
+    color: var(--text-normal);
 }
