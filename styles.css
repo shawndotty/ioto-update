@@ -81,10 +81,10 @@ input.invalid-input {
 .ioto-repo-link {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
+    justify-content: center;
+    padding: 4px;
     border-radius: 4px;
-    font-size: var(--font-ui-smaller);
+    line-height: 0;
     text-decoration: none;
     border: 1px solid var(--background-modifier-border);
     color: var(--text-muted);
@@ -99,6 +99,7 @@ input.invalid-input {
 
 .ioto-repo-link svg {
     flex-shrink: 0;
+    display: block;
 }
 
 .ioto-repo-link--github {
