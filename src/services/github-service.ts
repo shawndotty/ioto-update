@@ -110,43 +110,17 @@ export class GithubService {
 				0,
 			);
 
-			// 2. Fetch the latest release
-			const release = await this.getLatestRelease(owner, repo);
-			if (!release) {
+			// 获取插件 release 文件（manifest.json / main.js / styles.css），
+			// 优先通过 releases/latest/download 直连下载（不走 API，不受 60 次/小时限流影响），
+			// 直连失败时降级到 GitHub API。
+			const files = await this.fetchPluginReleaseFiles(owner, repo);
+			if (!files || !files.manifestContent || !files.mainJsContent) {
 				if (notice) notice.hide();
 				new Notice(t("No release found for this repository"));
 				return;
 			}
 
-			// 3. Find necessary assets (main.js, manifest.json, styles.css)
-			const manifestAsset = release.assets.find(
-				(a: any) => a.name === "manifest.json",
-			);
-			const mainJsAsset = release.assets.find(
-				(a: any) => a.name === "main.js",
-			);
-			const stylesCssAsset = release.assets.find(
-				(a: any) => a.name === "styles.css",
-			);
-
-			if (!manifestAsset || !mainJsAsset) {
-				if (notice) notice.hide();
-				new Notice(
-					t(
-						"Release is missing manifest.json or main.js. Cannot install.",
-					),
-				);
-				return;
-			}
-
-			if (notice) notice.hide();
-			notice = new Notice(t("Downloading manifest"), 0);
-
-			// 4. Download manifest first to get the plugin ID
-			const manifestContent = await this.downloadAsset(
-				manifestAsset.browser_download_url,
-			);
-			const manifest = JSON.parse(manifestContent);
+			const manifest = JSON.parse(files.manifestContent);
 			const pluginId = manifest.id;
 
 			if (!pluginId) {
@@ -171,18 +145,7 @@ export class GithubService {
 			if (notice) notice.hide();
 			notice = new Notice(t("Downloading plugin files"), 0);
 
-			// 5. Download other files
-			const mainJsContent = await this.downloadAsset(
-				mainJsAsset.browser_download_url,
-			);
-			let stylesCssContent = "";
-			if (stylesCssAsset) {
-				stylesCssContent = await this.downloadAsset(
-					stylesCssAsset.browser_download_url,
-				);
-			}
-
-			// 6. Ensure plugin directory exists
+			// 2. Ensure plugin directory exists
 			// app.vault.configDir usually is ".obsidian"
 			const pluginDir = `${app.vault.configDir}/plugins/${pluginId}`;
 			const adapter = app.vault.adapter;
@@ -191,13 +154,16 @@ export class GithubService {
 				await adapter.mkdir(pluginDir);
 			}
 
-			// 7. Write files
-			await adapter.write(`${pluginDir}/manifest.json`, manifestContent);
-			await adapter.write(`${pluginDir}/main.js`, mainJsContent);
-			if (stylesCssContent) {
+			// 3. Write files
+			await adapter.write(
+				`${pluginDir}/manifest.json`,
+				files.manifestContent,
+			);
+			await adapter.write(`${pluginDir}/main.js`, files.mainJsContent);
+			if (files.stylesCssContent) {
 				await adapter.write(
 					`${pluginDir}/styles.css`,
-					stylesCssContent,
+					files.stylesCssContent,
 				);
 			}
 
@@ -239,13 +205,96 @@ export class GithubService {
 					)}`,
 				);
 			}
-
-			// Optional: Reload plugins logic could go here, but usually requires user action or internal API usage
-			// For now, just notifying is safer.
 		} catch (error) {
 			if (notice) notice.hide();
 			console.error(t("Failed to install plugin") + ":", error);
 			new Notice(t("Check console for details"));
+		}
+	}
+
+	/**
+	 * 获取插件 release 中的 manifest.json / main.js / styles.css 文件内容。
+	 *
+	 * 优先使用 GitHub 的 releases/latest/download/{file} 直连下载 URL：
+	 * 这是 GitHub 提供的 302 重定向链接，指向最新 release 的附件，
+	 * 完全不走 REST API，不受未认证 60 次/小时的限流影响。
+	 *
+	 * 当直连失败（例如仓库未发布 release、附件缺失、网络异常）时，
+	 * 降级到 GitHub REST API（api.github.com/repos/.../releases/latest），
+	 * 从 release.assets[].browser_download_url 获取真正的下载地址。
+	 *
+	 * @returns 成功返回三个文件内容；失败返回 null
+	 */
+	private static async fetchPluginReleaseFiles(
+		owner: string,
+		repo: string,
+	): Promise<{
+		manifestContent: string;
+		mainJsContent: string;
+		stylesCssContent: string;
+	} | null> {
+		// 方案 1：直连下载 URL（不走 API，不受限流影响）
+		const baseUrl = `https://github.com/${owner}/${repo}/releases/latest/download`;
+		try {
+			const manifestContent = await this.downloadAsset(
+				`${baseUrl}/manifest.json`,
+			);
+			const mainJsContent = await this.downloadAsset(
+				`${baseUrl}/main.js`,
+			);
+			// styles.css 可选：很多插件没有 styles.css，404 视为正常
+			let stylesCssContent = "";
+			try {
+				stylesCssContent = await this.downloadAsset(
+					`${baseUrl}/styles.css`,
+				);
+			} catch {
+				// styles.css 不存在是正常的，静默跳过
+			}
+			return { manifestContent, mainJsContent, stylesCssContent };
+		} catch (directErr) {
+			console.warn(
+				"GitHub direct download failed, falling back to API:",
+				directErr,
+			);
+		}
+
+		// 方案 2：直连失败时降级到 GitHub REST API
+		try {
+			const release = await this.getLatestRelease(owner, repo);
+			if (!release) return null;
+
+			const manifestAsset = release.assets.find(
+				(a: any) => a.name === "manifest.json",
+			);
+			const mainJsAsset = release.assets.find(
+				(a: any) => a.name === "main.js",
+			);
+			const stylesCssAsset = release.assets.find(
+				(a: any) => a.name === "styles.css",
+			);
+
+			if (!manifestAsset || !mainJsAsset) return null;
+
+			const manifestContent = await this.downloadAsset(
+				manifestAsset.browser_download_url,
+			);
+			const mainJsContent = await this.downloadAsset(
+				mainJsAsset.browser_download_url,
+			);
+			let stylesCssContent = "";
+			if (stylesCssAsset) {
+				stylesCssContent = await this.downloadAsset(
+					stylesCssAsset.browser_download_url,
+				);
+			}
+			return { manifestContent, mainJsContent, stylesCssContent };
+		} catch (apiErr) {
+			console.error(
+				"GitHub API fallback also failed for fetching plugin files:",
+				apiErr,
+			);
+			return null;
 		}
 	}
 
