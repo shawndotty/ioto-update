@@ -49,17 +49,18 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			this.renderBasicSettings(content),
 		);
 
-		tabbedSettings.addTab(t("IOTO_UPDATES"), (content: HTMLElement) =>
-			this.renderIOTOUpdatesSettings(content),
+		tabbedSettings.addTab(t("Plugins Center"), (content: HTMLElement) =>
+			this.renderPluginsCenter(content),
 		);
+        
+		// tabbedSettings.addTab(t("IOTO_UPDATES"), (content: HTMLElement) =>
+		// 	this.renderIOTOUpdatesSettings(content),
+		// );
 
 		tabbedSettings.addTab(t("IOTO_TOTURIALS"), (content: HTMLElement) =>
 			this.renderIOTOToturialsSettings(content),
 		);
 
-		tabbedSettings.addTab(t("Plugins Center"), (content: HTMLElement) =>
-			this.renderPluginsCenter(content),
-		);
 	}
 
 	private renderBasicSettings(containerEl: HTMLElement) {
