@@ -33,6 +33,13 @@ export const SSG_VIEW_ID_WHITELIST = ["viwZvtQy1GDWu00sA", "viwwopZSx1IGoTiJE"];
 
 export const IOTO_PLUGINS: IOTOPluginEntry[] = [
 	{
+		key: "ioto-tasks-center",
+		nameKey: "IOTO Tasks Center",
+		descKey: "IOTO Tasks Center.desc",
+		githubUrl: "https://github.com/shawndotty/ioto-tasks-center",
+		giteeUrl: "https://gitee.com/johnnylearns/ioto-tasks-center",
+	},
+	{
 		key: "ioto-template-generator",
 		nameKey: "IOTO Template Generator",
 		descKey: "IOTO Template Generator.desc",
@@ -53,13 +60,6 @@ export const IOTO_PLUGINS: IOTOPluginEntry[] = [
 		descKey: "IOTO Dashboard.desc",
 		githubUrl: "https://github.com/shawndotty/ioto-dashboard",
 		giteeUrl: "https://gitee.com/johnnylearns/ioto-dashboard",
-	},
-	{
-		key: "ioto-tasks-center",
-		nameKey: "IOTO Tasks Center",
-		descKey: "IOTO Tasks Center.desc",
-		githubUrl: "https://github.com/shawndotty/ioto-tasks-center",
-		giteeUrl: "https://gitee.com/johnnylearns/ioto-tasks-center",
 	},
 	{
 		key: "text-popup",
