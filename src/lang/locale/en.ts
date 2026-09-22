@@ -195,4 +195,19 @@ export default {
 	"Text Popup": "Text Popup",
 	"Text Popup.desc":
 		"Popup selected text in a floating window for distraction-free reading.",
+	"My Text Tools": "My Text Tools",
+	"My Text Tools.desc":
+		"A collection of text manipulation utilities for Obsidian.",
+	"SlidesRup": "SlidesRup",
+	"SlidesRup.desc":
+		"Create and present slides directly inside Obsidian.",
+	"Airtable Fetcher": "Airtable Fetcher",
+	"Airtable Fetcher.desc":
+		"Fetch and embed Airtable records into your notes.",
+	"Feishu Fetcher": "Feishu Fetcher",
+	"Feishu Fetcher.desc":
+		"Fetch and embed Feishu/Lark documents and data into your notes.",
+	"Vika Fetcher": "Vika Fetcher",
+	"Vika Fetcher.desc":
+		"Fetch and embed Vika (维格表) records into your notes.",
 };

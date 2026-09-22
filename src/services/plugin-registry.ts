@@ -68,6 +68,41 @@ export const IOTO_PLUGINS: IOTOPluginEntry[] = [
 		githubUrl: "https://github.com/shawndotty/text-popup",
 		giteeUrl: "https://gitee.com/johnnylearns/text-popup",
 	},
+	{
+		key: "my-text-tools",
+		nameKey: "My Text Tools",
+		descKey: "My Text Tools.desc",
+		githubUrl: "https://github.com/shawndotty/my-text-tools",
+		giteeUrl: "https://gitee.com/johnnylearns/my-text-tools",
+	},
+	{
+		key: "slidesrup",
+		nameKey: "SlidesRup",
+		descKey: "SlidesRup.desc",
+		githubUrl: "https://github.com/shawndotty/slidesrup",
+		giteeUrl: "https://gitee.com/johnnylearns/slidesrup",
+	},
+	{
+		key: "obsidian-airtable-fetcher",
+		nameKey: "Airtable Fetcher",
+		descKey: "Airtable Fetcher.desc",
+		githubUrl: "https://github.com/shawndotty/obsidian-airtable-fetcher",
+		giteeUrl: "https://gitee.com/johnnylearns/obsidian-airtable-fetcher",
+	},
+	{
+		key: "obsidian-feishu-fetcher",
+		nameKey: "Feishu Fetcher",
+		descKey: "Feishu Fetcher.desc",
+		githubUrl: "https://github.com/shawndotty/obsidian-feishu-fetcher",
+		giteeUrl: "https://gitee.com/johnnylearns/obsidian-feishu-fetcher",
+	},
+	{
+		key: "obsidian-vika-fetcher",
+		nameKey: "Vika Fetcher",
+		descKey: "Vika Fetcher.desc",
+		githubUrl: "https://github.com/shawndotty/obsidian-vika-fetcher",
+		giteeUrl: "https://gitee.com/johnnylearns/obsidian-vika-fetcher",
+	},
 ];
 
 /**
