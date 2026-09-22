@@ -56,49 +56,17 @@ export class GiteeService {
 				0,
 			);
 
-			const release = await this.getLatestRelease(owner, repo);
-			if (!release) {
+			// 获取插件 release 文件（manifest.json / main.js / styles.css），
+			// 内部会先尝试 Gitee API，失败时降级到 releases 页面抓取 tag 后直接下载，
+			// 与 getLatestPluginManifest 的限流降级策略保持一致。
+			const files = await this.fetchPluginReleaseFiles(owner, repo);
+			if (!files || !files.manifestContent || !files.mainJsContent) {
 				if (notice) notice.hide();
 				new Notice(t("No release found for this repository"));
 				return;
 			}
 
-			// 获取附件列表（包含 manifest.json / main.js / styles.css）
-			const assets = await this.getReleaseAssets(owner, repo, release.id);
-			if (!assets || !Array.isArray(assets)) {
-				if (notice) notice.hide();
-				new Notice(t("No release found for this repository"));
-				return;
-			}
-
-			const manifestAsset = assets.find(
-				(a: any) => a.name === "manifest.json",
-			);
-			const mainJsAsset = assets.find((a: any) => a.name === "main.js");
-			const stylesCssAsset = assets.find(
-				(a: any) => a.name === "styles.css",
-			);
-
-			if (!manifestAsset || !mainJsAsset) {
-				if (notice) notice.hide();
-				new Notice(
-					t(
-						"Release is missing manifest.json or main.js. Cannot install.",
-					),
-				);
-				return;
-			}
-
-			if (notice) notice.hide();
-			notice = new Notice(t("Downloading manifest"), 0);
-
-			const manifestContent = await this.downloadAssetFromGitee(
-				manifestAsset,
-				owner,
-				repo,
-				release,
-			);
-			const manifest = JSON.parse(manifestContent);
+			const manifest = JSON.parse(files.manifestContent);
 			const pluginId = manifest.id;
 
 			if (!pluginId) {
@@ -123,34 +91,21 @@ export class GiteeService {
 			if (notice) notice.hide();
 			notice = new Notice(t("Downloading plugin files"), 0);
 
-			const mainJsContent = await this.downloadAssetFromGitee(
-				mainJsAsset,
-				owner,
-				repo,
-				release,
-			);
-			let stylesCssContent = "";
-			if (stylesCssAsset) {
-				stylesCssContent = await this.downloadAssetFromGitee(
-					stylesCssAsset,
-					owner,
-					repo,
-					release,
-				);
-			}
-
 			const pluginDir = `${app.vault.configDir}/plugins/${pluginId}`;
 			const adapter = app.vault.adapter;
 			if (!(await adapter.exists(pluginDir))) {
 				await adapter.mkdir(pluginDir);
 			}
 
-			await adapter.write(`${pluginDir}/manifest.json`, manifestContent);
-			await adapter.write(`${pluginDir}/main.js`, mainJsContent);
-			if (stylesCssContent) {
+			await adapter.write(
+				`${pluginDir}/manifest.json`,
+				files.manifestContent,
+			);
+			await adapter.write(`${pluginDir}/main.js`, files.mainJsContent);
+			if (files.stylesCssContent) {
 				await adapter.write(
 					`${pluginDir}/styles.css`,
-					stylesCssContent,
+					files.stylesCssContent,
 				);
 			}
 
@@ -196,6 +151,116 @@ export class GiteeService {
 			if (notice) notice.hide();
 			console.error(t("Failed to install plugin") + ":", error);
 			new Notice(t("Check console for details"));
+		}
+	}
+
+	/**
+	 * 获取插件 release 中的 manifest.json / main.js / styles.css 文件内容。
+	 *
+	 * 优先使用 Gitee API；当 API 限流或返回为空时降级到 releases 页面：
+	 * 解析出最新 release 的 tag，再通过 releases/download/{tag}/{file} 直接下载。
+	 *
+	 * 注意：不使用 master 分支的 raw 文件作为安装来源，避免安装未发布的代码。
+	 *
+	 * @returns 成功返回三个文件内容；失败返回 null
+	 */
+	private static async fetchPluginReleaseFiles(
+		owner: string,
+		repo: string,
+	): Promise<{
+		manifestContent: string;
+		mainJsContent: string;
+		stylesCssContent: string;
+	} | null> {
+		// 方案 1：Gitee API（成功则直接返回；失败/限流/无 release 则降级）
+		try {
+			const release = await this.getLatestRelease(owner, repo);
+			if (release) {
+				const assets = await this.getReleaseAssets(
+					owner,
+					repo,
+					release.id,
+				);
+				if (assets && Array.isArray(assets)) {
+					const manifestAsset = assets.find(
+						(a: any) => a.name === "manifest.json",
+					);
+					const mainJsAsset = assets.find(
+						(a: any) => a.name === "main.js",
+					);
+					const stylesCssAsset = assets.find(
+						(a: any) => a.name === "styles.css",
+					);
+					if (manifestAsset && mainJsAsset) {
+						const manifestContent = await this.downloadAssetFromGitee(
+							manifestAsset,
+							owner,
+							repo,
+							release,
+						);
+						const mainJsContent = await this.downloadAssetFromGitee(
+							mainJsAsset,
+							owner,
+							repo,
+							release,
+						);
+						let stylesCssContent = "";
+						if (stylesCssAsset) {
+							stylesCssContent = await this.downloadAssetFromGitee(
+								stylesCssAsset,
+								owner,
+								repo,
+								release,
+							);
+						}
+						return {
+							manifestContent,
+							mainJsContent,
+							stylesCssContent,
+						};
+					}
+				}
+			}
+		} catch (apiErr) {
+			console.warn(
+				"Gitee API failed during install, trying releases page fallback:",
+				apiErr,
+			);
+		}
+
+		// 方案 2：API 失败（限流/无 release）时，抓取 releases 页面获取最新 tag，
+		// 然后直接从 release 下载文件
+		try {
+			const tag = await this.getLatestReleaseTagFromPage(owner, repo);
+			if (!tag) return null;
+
+			const baseUrl = `https://gitee.com/${owner}/${repo}/releases/download/${tag}`;
+			const manifestContent = await this.downloadRawText(
+				`${baseUrl}/manifest.json`,
+			);
+			if (!manifestContent) return null;
+
+			const mainJsContent = await this.downloadRawText(
+				`${baseUrl}/main.js`,
+			);
+			if (!mainJsContent) return null;
+
+			// styles.css 可选，不存在时静默跳过
+			let stylesCssContent = "";
+			const stylesCssTmp = await this.downloadRawText(
+				`${baseUrl}/styles.css`,
+			);
+			if (stylesCssTmp) {
+				stylesCssContent = stylesCssTmp;
+			}
+
+			return { manifestContent, mainJsContent, stylesCssContent };
+		} catch (fallbackErr) {
+			console.error(
+				"Both API and fallback failed for fetching plugin files:",
+				fallbackErr,
+			);
+			return null;
 		}
 	}
 
