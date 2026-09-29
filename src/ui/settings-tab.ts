@@ -224,22 +224,6 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			mask: true,
 		});
 
-		new Setting(containerEl)
-			.setName(t("Plugin Download Source"))
-			.setDesc(t("Choose where to download and update plugins"))
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption("github", t("GitHub"))
-					.addOption("gitee", t("Gitee"))
-					.setValue(
-						this.plugin.settings.pluginDownloadSource || "github",
-					)
-					.onChange(async (value) => {
-						this.plugin.settings.pluginDownloadSource =
-							value as any;
-						await this.plugin.saveSettings();
-					});
-			});
 
 		// 创建一个用于设置 iotoRunningLanguage 的单选设置
 		new Setting(containerEl)
@@ -284,6 +268,23 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 	}
 
 	private renderPluginsCenter(containerEl: HTMLElement) {
+
+		new Setting(containerEl)
+			.setName(t("Plugin Download Source"))
+			.setDesc(t("Choose where to download and update plugins"))
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("github", t("GitHub"))
+					.addOption("gitee", t("Gitee"))
+					.setValue(
+						this.plugin.settings.pluginDownloadSource || "github",
+					)
+					.onChange(async (value) => {
+						this.plugin.settings.pluginDownloadSource =
+							value as any;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl).setDesc(t("IOTO Plugins Center Description"));
 
