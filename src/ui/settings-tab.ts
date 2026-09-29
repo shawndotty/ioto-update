@@ -1,4 +1,10 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import {
+	App,
+	Notice,
+	PluginSettingTab,
+	setIcon,
+	Setting,
+} from "obsidian";
 import { t } from "../lang/helpers";
 import IOTOUpdate from "../main";
 import { Utils } from "../utils";
@@ -193,6 +199,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			validText: t("Valid API Key"),
 			validClass: "valid-api-key",
 			invalidClass: "invalid-api-key",
+			mask: true,
 		});
 
 		this.createValidatedInputSetting({
@@ -214,6 +221,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			validText: t("Valid Email"),
 			validClass: "valid-email",
 			invalidClass: "invalid-email",
+			mask: true,
 		});
 
 		new Setting(containerEl)
@@ -631,6 +639,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		validText: string;
 		validClass: string;
 		invalidClass: string;
+		mask?: boolean; // 以 password 显示，并在输入框后附带显示/隐藏切换按钮
 	}) {
 		new Setting(options.container)
 			.setName(options.name)
@@ -654,6 +663,42 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 					loadingSpan,
 					text.inputEl,
 				);
+
+				// 需要遮挡的输入（API Key / 邮箱）：默认以 * 显示 + 显示/隐藏切换
+				if (options.mask) {
+					text.inputEl.type = "password";
+					text.inputEl.autocomplete = "off";
+
+					const toggleBtn = createEl("button", {
+						cls: "clickable-icon ioto-secret-toggle",
+						attr: {
+							type: "button",
+							"aria-label": t("Show"),
+							title: t("Show"),
+						},
+					});
+					setIcon(toggleBtn, "eye");
+
+					// 阻止按钮抢焦点：否则 input 会先 blur、误触发一次校验请求
+					toggleBtn.addEventListener("mousedown", (e) =>
+						e.preventDefault(),
+					);
+
+					toggleBtn.addEventListener("click", () => {
+						const hidden = text.inputEl.type === "password";
+						text.inputEl.type = hidden ? "text" : "password";
+						setIcon(toggleBtn, hidden ? "eye-off" : "eye");
+						const label = hidden ? t("Hide") : t("Show");
+						toggleBtn.setAttribute("aria-label", label);
+						toggleBtn.setAttribute("title", label);
+					});
+
+					// 紧跟输入框之后（沿用现有 insertBefore 写法）
+					text.inputEl.parentElement?.insertBefore(
+						toggleBtn,
+						text.inputEl.nextSibling,
+					);
+				}
 
 				const updateValidState = (
 					isValid: boolean,
@@ -712,7 +757,6 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 					}
 
 					const value = text.inputEl.value;
-					console.log(value);
 					// 在失去焦点时触发验证
 					if (options.validationFn(value)) {
 						updateValidState(false, true); // Show loading
