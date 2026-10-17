@@ -8,6 +8,7 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"build:deploy": "node scripts/deploy-release.mjs",
 		"deploy:starter": "node scripts/deploy-starter.mjs",
+		"test": "node --test --import ./tests/ts-loader.mjs tests/**/*.test.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
