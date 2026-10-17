@@ -249,6 +249,20 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			placeholder: t("Enter the path to your IOTO Framework"),
 			settingKey: "iotoFrameworkPath",
 		});
+
+		new Setting(containerEl)
+			.setName(t("Skip MYIOTO On One-Click Deploy"))
+			.setDesc(t("Skip MYIOTO On One-Click Deploy Description"))
+			.addToggle((toggle) =>
+				toggle
+					.setValue(
+						this.plugin.settings.skipMyIotoInAllUpdates ?? false,
+					)
+					.onChange(async (value) => {
+						this.plugin.settings.skipMyIotoInAllUpdates = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 	}
 
 	private renderIOTOUpdatesSettings(containerEl: HTMLElement) {

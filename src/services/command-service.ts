@@ -419,13 +419,24 @@ export class CommandService {
 			id: "run-all-updates",
 			name: t("Deploy IOTO With One Click"),
 			callback: async () => {
+				const skipMyIoto =
+					this.plugin.settings.skipMyIotoInAllUpdates === true;
+
 				const updateTasks = commandConfigs
 					.filter((config) => config.isPartOfAllUpdates)
+					.filter(
+						(config) =>
+							!(skipMyIoto && config.id === "get-myioto"),
+					)
 					.map((config) => ({
 						id: config.id,
 						name: config.name,
 						tableConfig: config.tableConfig(),
 					}));
+
+				if (skipMyIoto) {
+					new Notice(t("MYIOTO Skipped By Setting"));
+				}
 
 				await this.withDisabledTemplaterTrigger(async () => {
 					const updatePromises = updateTasks.map((task) => {

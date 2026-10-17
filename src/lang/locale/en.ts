@@ -37,6 +37,11 @@ export default {
 		"Please enter the path to your IOTO Framework",
 	"Enter the path to your IOTO Framework":
 		"Enter the path to your IOTO Framework",
+	"Skip MYIOTO On One-Click Deploy":
+		"Skip MYIOTO templates on one-click deploy",
+	"Skip MYIOTO On One-Click Deploy Description":
+		"When enabled, one-click deploy will not update the contents under MYIOTO. The single \"Update MYIOTO Templates\" command still works.",
+	"MYIOTO Skipped By Setting": "MYIOTO update skipped per settings.",
 	"IOTO Update Settings": "IOTO Update Settings",
 	Basic: "Basic",
 	UserSyncTemplates: "User Sync Templates",

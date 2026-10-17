@@ -97,16 +97,24 @@ function createApp(options = {}) {
 /** 造一个命令服务，并返回它注册到的命令表。 */
 function createService(settingsOverrides = {}, options = {}) {
 	const { app, reloads, enabled } = createApp(options);
+	const settings = { ...SETTINGS, ...settingsOverrides };
+	// plugin.settings 与构造参数里的 settings 保持两份对象：
+	// 「改设置立即生效」用例要靠它区分「读插件设置」与「读构造时快照」。
+	const plugin = {
+		app,
+		settings: { ...settings },
+		saveSettings: async () => {},
+	};
 	const commands = [];
 	const service = new CommandService(
 		app,
-		{ app, settings: { ...SETTINGS, ...settingsOverrides }, saveSettings: async () => {} },
+		plugin,
 		(command) => commands.push(command),
-		{ ...SETTINGS, ...settingsOverrides },
+		settings,
 		{ getPluginSetting: () => null, setTemplaterSetting: async () => {} },
 		{ getUpdateIDs: async () => ({ updateIDs: {}, userChecked: true }) },
 	);
-	return { service, commands, app, reloads, enabled };
+	return { service, commands, app, reloads, enabled, plugin };
 }
 
 test('授权信息不完整时一条命令都不注册', () => {
@@ -209,6 +217,67 @@ test('一键部署只跑 isPartOfAllUpdates 的 5 个数据源，并只给 MyIOT
 
 	assert.deepEqual(enabled, ['ioto-settings'], '全部成功后重新启用设置插件');
 	assert.deepEqual(reloads, ['app:reload']);
+});
+
+test('开启跳过设置后，一键部署只跑其余 4 个数据源并给出跳过提示', async () => {
+	const { service, commands, enabled, reloads } =
+		createService({ skipMyIotoInAllUpdates: true });
+	service.registerCommands();
+
+	const calls = [];
+	service.executeNocoDBCommand = async (tableConfig) => {
+		calls.push(tableConfig);
+	};
+
+	notices.length = 0;
+	await commands.find((command) => command.id === 'run-all-updates').callback();
+
+	assert.deepEqual(
+		calls.map((config) => config.viewID),
+		['viwCore', 'viwHelp', 'viwCss', 'viwSetting'],
+	);
+	assert.ok(
+		notices.includes('MYIOTO update skipped per settings.'),
+		`缺少跳过提示，实际: ${notices.join(' | ')}`,
+	);
+	assert.deepEqual(enabled, ['ioto-settings']);
+	assert.deepEqual(reloads, ['app:reload']);
+});
+
+test('开启跳过设置后，单独执行「更新MYIOTO模板」仍然更新 MyIOTO', async () => {
+	const { service, commands } = createService({
+		skipMyIotoInAllUpdates: true,
+	});
+	service.registerCommands();
+
+	const calls = [];
+	service.executeNocoDBCommand = async (tableConfig) => {
+		calls.push(tableConfig);
+	};
+
+	await commands.find((command) => command.id === 'get-myioto').callback();
+
+	assert.deepEqual(calls.map((config) => config.viewID), ['viwMy']);
+});
+
+test('改设置后下一次一键部署立即生效，无需重载插件', async () => {
+	const { service, commands, plugin } = createService();
+	service.registerCommands();
+
+	const calls = [];
+	service.executeNocoDBCommand = async (tableConfig) => {
+		calls.push(tableConfig.viewID);
+	};
+	const run = () =>
+		commands.find((command) => command.id === 'run-all-updates').callback();
+
+	await run();
+	assert.ok(calls.includes('viwMy'), '默认设置下应更新 MyIOTO');
+
+	calls.length = 0;
+	plugin.settings.skipMyIotoInAllUpdates = true;
+	await run();
+	assert.ok(!calls.includes('viwMy'), '开启后应跳过 MyIOTO');
 });
 
 test('一键部署单个数据源失败时给出失败提示且继续跑完其余任务', async () => {

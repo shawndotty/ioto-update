@@ -32,6 +32,10 @@ export default {
 	"IOTO Framework Path": "IOTO框架路径",
 	"Please enter the path to your IOTO Framework": "请输入你的 IOTO 框架路径",
 	"Enter the path to your IOTO Framework": "输入你的IOTO框架路径",
+	"Skip MYIOTO On One-Click Deploy": "一键部署时跳过MYIOTO模板",
+	"Skip MYIOTO On One-Click Deploy Description":
+		"开启后，一键部署IOTO时不会再更新MYIOTO目录下的内容；单独执行「更新MYIOTO模板」命令仍可手动更新。",
+	"MYIOTO Skipped By Setting": "已按设置跳过MYIOTO更新。",
 	"IOTO Update Settings": "IOTO更新设置",
 	Basic: "基本设置",
 	UserSyncTemplates: "用户同步模板",

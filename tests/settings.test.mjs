@@ -38,6 +38,20 @@ test('默认设置的授权与语言字段处于未授权 / 跟随 Obsidian 状�
 	assert.equal(DEFAULT_SETTINGS.iotoRunningLanguage, 'ob');
 });
 
+test('一键部署默认不跳过 MyIOTO', () => {
+	assert.equal(DEFAULT_SETTINGS.skipMyIotoInAllUpdates, false);
+});
+
+test('data.json 显式保存 skipMyIotoInAllUpdates: true 时能正确载入', async () => {
+	const manager = new SettingsManager(
+		async () => ({ skipMyIotoInAllUpdates: true }),
+		async () => {},
+		createApp(),
+	);
+	const settings = await manager.load();
+	assert.equal(settings.skipMyIotoInAllUpdates, true);
+});
+
 test('未安装 ioto-settings 时只返回默认设置', async () => {
 	const manager = new SettingsManager(
 		async () => ({}),

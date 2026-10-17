@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: IOTOUpdateSettings = {
 	userAPIKey: "",
 	userSyncSettingUrl: "",
 	userSyncScriptsFolder: t("UserSyncTemplatesPath"),
+	skipMyIotoInAllUpdates: false,
 	userChecked: false,
 	updateIDs: {
 		iotoCore: {
