@@ -34,8 +34,10 @@ export default {
 	"Enter the path to your IOTO Framework": "輸入你的IOTO框架路徑",
 	"Skip MYIOTO On One-Click Deploy": "一鍵部署時跳過MYIOTO模板",
 	"Skip MYIOTO On One-Click Deploy Description":
-		"開啟後，一鍵部署IOTO時不會再更新MYIOTO目錄下的內容；單獨執行「更新MYIOTO模板」命令仍可手動更新。",
+		"開啟後，一鍵部署IOTO時不會再更新MYIOTO目錄下的內容；單獨執行「更新MYIOTO模板」命令仍可手動更新。首次部署除外：首次一鍵部署會先下載MYIOTO內容，跳過設定從下一次開始生效。",
 	"MYIOTO Skipped By Setting": "已按設定跳過MYIOTO更新。",
+	"MYIOTO Initial Download Ignores Skip":
+		"首次部署會先下載MYIOTO內容，跳過設定從下一次一鍵部署開始生效。",
 	"IOTO Update Settings": "IOTO更新設定",
 	Basic: "基本設定",
 	UserSyncTemplates: "用戶同步模板",
@@ -152,9 +154,9 @@ export default {
 	TRAE: "TRAE",
 	Workbuddy: "Workbuddy",
 	DSH: "DeepSeek Harness",
-	Qoder: "Qoder",
+	Qoder: "Qoder",
 	PI: "Pi",
-	"Oh My Pi": "Oh My Pi",
+	"Oh My Pi": "Oh My Pi",
 	Codebuddy: "Codebuddy",
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",

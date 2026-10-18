@@ -65,6 +65,8 @@ function createApp(options = {}) {
 	const app = {
 		vault: {
 			configDir: '.obsidian',
+			getFiles: () =>
+				(options.files ?? []).map((filePath) => ({ path: filePath })),
 			adapter: {
 				async exists() {
 					return true;
@@ -100,10 +102,13 @@ function createService(settingsOverrides = {}, options = {}) {
 	const settings = { ...SETTINGS, ...settingsOverrides };
 	// plugin.settings 与构造参数里的 settings 保持两份对象：
 	// 「改设置立即生效」用例要靠它区分「读插件设置」与「读构造时快照」。
+	const saves = [];
 	const plugin = {
 		app,
 		settings: { ...settings },
-		saveSettings: async () => {},
+		saveSettings: async () => {
+			saves.push(plugin.settings.myIotoDeployed);
+		},
 	};
 	const commands = [];
 	const service = new CommandService(
@@ -114,7 +119,7 @@ function createService(settingsOverrides = {}, options = {}) {
 		{ getPluginSetting: () => null, setTemplaterSetting: async () => {} },
 		{ getUpdateIDs: async () => ({ updateIDs: {}, userChecked: true }) },
 	);
-	return { service, commands, app, reloads, enabled, plugin };
+	return { service, commands, app, reloads, enabled, plugin, saves };
 }
 
 test('授权信息不完整时一条命令都不注册', () => {
@@ -219,9 +224,11 @@ test('一键部署只跑 isPartOfAllUpdates 的 5 个数据源，并只给 MyIOT
 	assert.deepEqual(reloads, ['app:reload']);
 });
 
-test('开启跳过设置后，一键部署只跑其余 4 个数据源并给出跳过提示', async () => {
-	const { service, commands, enabled, reloads } =
-		createService({ skipMyIotoInAllUpdates: true });
+test('开启跳过设置且已部署过，一键部署只跑其余 4 个数据源并给出跳过提示', async () => {
+	const { service, commands, enabled, reloads } = createService({
+		skipMyIotoInAllUpdates: true,
+		myIotoDeployed: true,
+	});
 	service.registerCommands();
 
 	const calls = [];
@@ -261,7 +268,9 @@ test('开启跳过设置后，单独执行「更新MYIOTO模板」仍然更新 M
 });
 
 test('改设置后下一次一键部署立即生效，无需重载插件', async () => {
-	const { service, commands, plugin } = createService();
+	const { service, commands, plugin } = createService({
+		myIotoDeployed: true,
+	});
 	service.registerCommands();
 
 	const calls = [];
@@ -278,6 +287,157 @@ test('改设置后下一次一键部署立即生效，无需重载插件', async
 	plugin.settings.skipMyIotoInAllUpdates = true;
 	await run();
 	assert.ok(!calls.includes('viwMy'), '开启后应跳过 MyIOTO');
+});
+
+test('首次部署时 skip 设置不生效，强制下载并写回 true', async () => {
+	const run = createService(
+		{ skipMyIotoInAllUpdates: true },
+		{ files: [] },
+	);
+	run.service.registerCommands();
+
+	const calls = [];
+	run.service.executeNocoDBCommand = async (config) => {
+		calls.push(config.viewID);
+	};
+
+	notices.length = 0;
+	await run.commands
+		.find((command) => command.id === 'run-all-updates')
+		.callback();
+
+	assert.deepEqual(calls, [
+		'viwCore',
+		'viwHelp',
+		'viwMy',
+		'viwCss',
+		'viwSetting',
+	]);
+	assert.ok(
+		notices.includes(
+			'First deploy always downloads MYIOTO content; the skip setting applies from the next one-click deploy.',
+		),
+		`缺少首次下载提示，实际: ${notices.join(' | ')}`,
+	);
+	assert.ok(
+		!notices.includes('MYIOTO update skipped per settings.'),
+		'首次部署不应提示已跳过',
+	);
+	assert.deepEqual(run.saves, [true]);
+	assert.equal(run.plugin.settings.myIotoDeployed, true);
+});
+
+test('老用户本地已有 MyIOTO 内容时跳过并一次性迁移标记', async () => {
+	const run = createService(
+		{ skipMyIotoInAllUpdates: true },
+		{
+			files: [
+				'0-辅助/IOTO/Templates/Templater/MyIOTO/a.md',
+			],
+		},
+	);
+	run.service.registerCommands();
+
+	const calls = [];
+	run.service.executeNocoDBCommand = async (config) => {
+		calls.push(config.viewID);
+	};
+
+	notices.length = 0;
+	await run.commands
+		.find((command) => command.id === 'run-all-updates')
+		.callback();
+
+	assert.deepEqual(calls, ['viwCore', 'viwHelp', 'viwCss', 'viwSetting']);
+	assert.ok(
+		notices.includes('MYIOTO update skipped per settings.'),
+		`缺少跳过提示，实际: ${notices.join(' | ')}`,
+	);
+	assert.deepEqual(run.saves, [true], '老用户只做一次性迁移写回');
+	assert.equal(run.plugin.settings.myIotoDeployed, true);
+});
+
+test('标记为 false 时即使本地有内容也强制下载（半途失败可重试）', async () => {
+	const run = createService(
+		{ skipMyIotoInAllUpdates: true, myIotoDeployed: false },
+		{
+			files: [
+				'0-辅助/IOTO/Templates/Templater/MyIOTO/a.md',
+			],
+		},
+	);
+	run.service.registerCommands();
+
+	const calls = [];
+	run.service.executeNocoDBCommand = async (config) => {
+		calls.push(config.viewID);
+	};
+
+	notices.length = 0;
+	await run.commands
+		.find((command) => command.id === 'run-all-updates')
+		.callback();
+
+	assert.ok(
+		calls.includes('viwMy'),
+		`标记为 false 时应强制下载，实际: ${calls.join(',')}`,
+	);
+	assert.ok(
+		notices.includes(
+			'First deploy always downloads MYIOTO content; the skip setting applies from the next one-click deploy.',
+		),
+	);
+});
+
+test('强制下载成功后把已部署标记写回 true', async () => {
+	const run = createService({
+		skipMyIotoInAllUpdates: true,
+		myIotoDeployed: false,
+	});
+	run.service.registerCommands();
+	run.service.executeNocoDBCommand = async () => {};
+
+	await run.commands
+		.find((command) => command.id === 'run-all-updates')
+		.callback();
+
+	assert.equal(run.plugin.settings.myIotoDeployed, true);
+	assert.deepEqual(run.saves, [true]);
+});
+
+test('强制下载失败时标记写回 false，其余任务照常跑完', async () => {
+	const run = createService({
+		skipMyIotoInAllUpdates: true,
+		myIotoDeployed: false,
+	});
+	run.service.registerCommands();
+
+	const attempted = [];
+	run.service.executeNocoDBCommand = async (config) => {
+		attempted.push(config.viewID);
+		if (config.viewID === 'viwMy') {
+			throw new Error('boom');
+		}
+	};
+
+	notices.length = 0;
+	await run.commands
+		.find((command) => command.id === 'run-all-updates')
+		.callback();
+
+	assert.deepEqual(attempted, [
+		'viwCore',
+		'viwHelp',
+		'viwMy',
+		'viwCss',
+		'viwSetting',
+	]);
+	assert.equal(run.plugin.settings.myIotoDeployed, false);
+	assert.deepEqual(run.saves, [false]);
+	assert.ok(
+		notices.includes('Update MYIOTO Templates failed: boom'),
+		`缺少失败提示，实际: ${notices.join(' | ')}`,
+	);
 });
 
 test('一键部署单个数据源失败时给出失败提示且继续跑完其余任务', async () => {

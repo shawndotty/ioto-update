@@ -106,6 +106,25 @@ export class Utils {
 		}
 		return 0;
 	}
+
+	/**
+	 * 本地是否已有 MyIOTO 内容（只认文件，不认空目录）。
+	 * 兼容历史上未归一化的 `MyIOTO-1-1-1` 目录。
+	 */
+	static hasMyIotoContent(
+		filePaths: string[],
+		frameworkPath: string
+	): boolean {
+		const root =
+			normalizePath(`${frameworkPath}/Templates/Templater`) + "/";
+		return filePaths.some((filePath) => {
+			const path = normalizePath(filePath);
+			return (
+				path.startsWith(root) &&
+				/^MyIOTO(-\d{1,2}-\d-\d)?\//.test(path.slice(root.length))
+			);
+		});
+	}
 }
 
 export function resolve_tfolder(app: App, folder_str: string): TFolder {

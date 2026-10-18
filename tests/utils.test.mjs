@@ -157,6 +157,37 @@ test('buildFieldNames 在显式语言下以设置为准，未知语言回落 en'
 	});
 });
 
+test('hasMyIotoContent 只认 MyIOTO 目录，兼容历史命名且不误匹配前缀', () => {
+	const root = '0-辅助/IOTO/Templates/Templater';
+	assert.equal(Utils.hasMyIotoContent([], '0-辅助/IOTO'), false);
+	assert.equal(
+		Utils.hasMyIotoContent([`${root}/MyIOTO/a.md`], '0-辅助/IOTO'),
+		true,
+	);
+	assert.equal(
+		Utils.hasMyIotoContent([`${root}/MyIOTO-1-1-1/a.md`], '0-辅助/IOTO'),
+		true,
+	);
+	assert.equal(
+		Utils.hasMyIotoContent([`${root}/MyIOTOX/a.md`], '0-辅助/IOTO'),
+		false,
+		'同名前缀不算',
+	);
+	assert.equal(
+		Utils.hasMyIotoContent(
+			['0-辅助/IOTO2/Templates/Templater/MyIOTO/a.md'],
+			'0-辅助/IOTO',
+		),
+		false,
+		'frameworkPath 前缀误匹配',
+	);
+	assert.equal(
+		Utils.hasMyIotoContent([`${root}/Other/MyIOTO/a.md`], '0-辅助/IOTO'),
+		false,
+		'深层同名目录不算',
+	);
+});
+
 /** 造一个只提供路径索引的最小 vault。 */
 function createVault(entries) {
 	return {

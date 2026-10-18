@@ -40,8 +40,10 @@ export default {
 	"Skip MYIOTO On One-Click Deploy":
 		"Skip MYIOTO templates on one-click deploy",
 	"Skip MYIOTO On One-Click Deploy Description":
-		"When enabled, one-click deploy will not update the contents under MYIOTO. The single \"Update MYIOTO Templates\" command still works.",
+		"When enabled, one-click deploy will not update the contents under MYIOTO. The single \"Update MYIOTO Templates\" command still works. Exception: the first one-click deploy always downloads MYIOTO content; the skip setting applies from the next deploy.",
 	"MYIOTO Skipped By Setting": "MYIOTO update skipped per settings.",
+	"MYIOTO Initial Download Ignores Skip":
+		"First deploy always downloads MYIOTO content; the skip setting applies from the next one-click deploy.",
 	"IOTO Update Settings": "IOTO Update Settings",
 	Basic: "Basic",
 	UserSyncTemplates: "User Sync Templates",
@@ -168,9 +170,9 @@ export default {
 	TRAE: "TRAE",
 	Workbuddy: "Workbuddy",
 	DSH: "DeepSeek Harness",
-	Qoder: "Qoder",
+	Qoder: "Qoder",
 	PI: "Pi",
-	"Oh My Pi": "Oh My Pi",
+	"Oh My Pi": "Oh My Pi",
 	Codebuddy: "Codebuddy",
 	"Claude Code": "Claude Code",
 	OpenCode: "OpenCode",

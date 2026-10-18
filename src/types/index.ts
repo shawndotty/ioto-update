@@ -43,6 +43,7 @@ export interface IOTOUpdateSettings {
 	userSyncSettingUrl: string;
 	userSyncScriptsFolder: string;
 	skipMyIotoInAllUpdates?: boolean;
+	myIotoDeployed?: boolean;
 	updateIDs: {
 		iotoCore: {
 			baseID: string;

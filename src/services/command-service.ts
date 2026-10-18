@@ -419,14 +419,35 @@ export class CommandService {
 			id: "run-all-updates",
 			name: t("Deploy IOTO With One Click"),
 			callback: async () => {
-				const skipMyIoto =
+				const skipRequested =
 					this.plugin.settings.skipMyIotoInAllUpdates === true;
+				const deployed = this.plugin.settings.myIotoDeployed;
+				const needsLocalCheck =
+					skipRequested && deployed === undefined;
+				const initialized =
+					deployed === true ||
+					(needsLocalCheck &&
+						Utils.hasMyIotoContent(
+							this.app.vault
+								.getFiles()
+								.map((file: { path: string }) => file.path),
+							this.plugin.settings.iotoFrameworkPath
+						));
+
+				const skipMyIoto = skipRequested && initialized;
+				const forceInitialDownload = skipRequested && !initialized;
+
+				// 老用户一次性迁移：本地已有内容即视为已部署，之后不再依赖目录扫描
+				if (needsLocalCheck && initialized) {
+					this.plugin.settings.myIotoDeployed = true;
+					await this.plugin.saveSettings();
+				}
 
 				const updateTasks = commandConfigs
 					.filter((config) => config.isPartOfAllUpdates)
 					.filter(
 						(config) =>
-							!(skipMyIoto && config.id === "get-myioto"),
+							!(skipMyIoto && config.id === "get-myioto")
 					)
 					.map((config) => ({
 						id: config.id,
@@ -436,6 +457,8 @@ export class CommandService {
 
 				if (skipMyIoto) {
 					new Notice(t("MYIOTO Skipped By Setting"));
+				} else if (forceInitialDownload) {
+					new Notice(t("MYIOTO Initial Download Ignores Skip"));
 				}
 
 				await this.withDisabledTemplaterTrigger(async () => {
@@ -451,14 +474,30 @@ export class CommandService {
 									task.tableConfig.intialSetup = true;
 								}
 								await this.executeNocoDBCommand(
-									task.tableConfig,
+									task.tableConfig
 								);
+
+								if (
+									task.id === "get-myioto" &&
+									forceInitialDownload
+								) {
+									this.plugin.settings.myIotoDeployed = true;
+									await this.plugin.saveSettings();
+								}
+
 								new Notice(`${task.name} ${t("completed")}`);
 								return {
 									status: "fulfilled",
 									name: task.name,
 								};
 							} catch (error) {
+								if (
+									task.id === "get-myioto" &&
+									forceInitialDownload
+								) {
+									this.plugin.settings.myIotoDeployed = false;
+									await this.plugin.saveSettings();
+								}
 								new Notice(
 									`${task.name} ${t("failed")}: ${
 										error.message
