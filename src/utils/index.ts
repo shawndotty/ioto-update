@@ -109,7 +109,7 @@ export class Utils {
 
 	/**
 	 * 本地是否已有 MyIOTO 内容（只认文件，不认空目录）。
-	 * 兼容历史上未归一化的 `MyIOTO-1-1-1` 目录。
+	 * 兼容历史上未归一化的 `MyIOTO-x-y-z` 目录（版本段位数不限）。
 	 */
 	static hasMyIotoContent(
 		filePaths: string[],
@@ -121,7 +121,7 @@ export class Utils {
 			const path = normalizePath(filePath);
 			return (
 				path.startsWith(root) &&
-				/^MyIOTO(-\d{1,2}-\d-\d)?\//.test(path.slice(root.length))
+				/^MyIOTO(-\d+-\d+-\d+)?\//.test(path.slice(root.length))
 			);
 		});
 	}

@@ -194,6 +194,31 @@ test('createOrUpdateNotesInOBFromSourceTable 新建文件并清洗文件名', as
 	assert.equal(vault.files.get('IOTO/docs/MyIOTO/New-File.md'), 'body');
 });
 
+test('intialSetup 归一化支持多位数版本段，且不误伤同名前缀目录', async () => {
+	const { sync, vault } = createSync({ table: { ...TABLE, intialSetup: true } });
+	stubFetch([
+		{
+			ok: true,
+			status: 200,
+			json: async () => ({
+				records: [
+					{ fields: { Title: 'Big', SubFolder: 'docs/MyIOTO-10-12-3', MD: 'a' } },
+					{ fields: { Title: 'Small', SubFolder: 'docs/MyIOTO-1-10-1', MD: 'b' } },
+					{ fields: { Title: 'Other', SubFolder: 'docs/MyIOTOX-1-2-3', MD: 'c' } },
+				],
+			}),
+		},
+	]);
+
+	await sync.createOrUpdateNotesInOBFromSourceTable({ ...TABLE, intialSetup: true });
+
+	assert.deepEqual(vault.created.sort(), [
+		'IOTO/docs/MyIOTO/Big.md',
+		'IOTO/docs/MyIOTO/Small.md',
+		'IOTO/docs/MyIOTOX-1-2-3/Other.md',
+	]);
+});
+
 test('createOrUpdateNotesInOBFromSourceTable 对已存在文件走 modify', async () => {
 	const { sync, vault } = createSync({
 		table: TABLE,

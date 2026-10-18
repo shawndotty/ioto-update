@@ -17,6 +17,10 @@ import { GiteeService } from "./gitee-service";
 import { PluginService } from "./plugin-service";
 import { AIPlatformSuggester } from "../suggesters/ai-platform-suggester";
 import { IOTO_PLUGINS, isSSGViewIDAllowed } from "./plugin-registry";
+import {
+	askMyIotoSubFolderMode,
+	MyIotoSubFolderMode,
+} from "../ui/modals/myioto-subfolder-modal";
 
 interface CommandConfig {
 	id: string;
@@ -28,6 +32,8 @@ interface CommandConfig {
 	apiKey?: () => string;
 	forceEnSyncFields?: boolean;
 	isPartOfAllUpdates?: boolean;
+	/** 仅 get-myioto：执行前询问是否做子目录归一化。 */
+	myIotoSubFolderChoice?: boolean;
 }
 
 export class CommandService {
@@ -94,6 +100,7 @@ export class CommandService {
 					targetFolderPath: this.settings.iotoFrameworkPath,
 				}),
 				isPartOfAllUpdates: true,
+				myIotoSubFolderChoice: true,
 			},
 			{
 				id: "get-css",
@@ -157,6 +164,7 @@ export class CommandService {
 						? config.apiKey()
 						: this.settings.updateAPIKey,
 					config.forceEnSyncFields,
+					config.myIotoSubFolderChoice,
 				);
 			});
 
@@ -373,6 +381,15 @@ export class CommandService {
 		}
 	}
 
+	/**
+	 * 询问单命令写入的子目录形式。
+	 * 真实语义是「是否做 MyIOTO 子目录归一化」，返回 null 表示用户取消。
+	 * 单测通过覆写本方法跳过真实弹窗。
+	 */
+	async askMyIotoSubFolderMode(): Promise<MyIotoSubFolderMode | null> {
+		return askMyIotoSubFolderMode(this.app);
+	}
+
 	createNocoDBCommand(
 		id: string,
 		name: string,
@@ -382,15 +399,31 @@ export class CommandService {
 		filterRecordsByDate: boolean = false,
 		apiKey: string = this.settings.updateAPIKey,
 		forceEnSyncFields: boolean = false,
+		myIotoSubFolderChoice: boolean = false,
 	) {
 		this.addCommand({
 			id,
 			name,
 			callback: async () => {
+				let runConfig = tableConfig;
+
+				if (myIotoSubFolderChoice) {
+					const mode = await this.askMyIotoSubFolderMode();
+					if (!mode) {
+						new Notice(t("MYIOTO Update Cancelled"));
+						return;
+					}
+					// 注册期求值的配置被闭包长期持有：必须复制，避免选择粘到下一次
+					runConfig =
+						mode === "unversioned"
+							? { ...tableConfig, intialSetup: true }
+							: { ...tableConfig };
+				}
+
 				try {
 					await this.withDisabledTemplaterTrigger(async () => {
 						await this.executeNocoDBCommand(
-							tableConfig,
+							runConfig,
 							iotoUpdate,
 							filterRecordsByDate,
 							apiKey,

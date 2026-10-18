@@ -177,9 +177,9 @@ export class NocoDBSync {
 			// 处理 SubFolder 中的 MyIOTO 格式
 			notesToCreateOrUpdate = notesToCreateOrUpdate.map((note) => {
 				if (note.SubFolder && note.SubFolder.includes("MyIOTO")) {
-					// 使用正则表达式匹配 MyIOTO-数字-数字-数字 的格式并替换为 MyIOTO
+					// 匹配 MyIOTO-数字-数字-数字（每段可多位）并替换为 MyIOTO
 					note.SubFolder = note.SubFolder.replace(
-						/MyIOTO-\d{1,2}-\d-\d/g,
+						/MyIOTO(?:-\d+){3}/g,
 						"MyIOTO",
 					);
 				}

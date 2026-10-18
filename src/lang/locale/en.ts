@@ -44,6 +44,12 @@ export default {
 	"MYIOTO Skipped By Setting": "MYIOTO update skipped per settings.",
 	"MYIOTO Initial Download Ignores Skip":
 		"First deploy always downloads MYIOTO content; the skip setting applies from the next one-click deploy.",
+	"MYIOTO SubFolder Mode Title": "Update MYIOTO Templates",
+	"MYIOTO SubFolder Mode Description":
+		"Choose how the subfolder is written. Versioned keeps MyIOTO-x-y-z; Unversioned writes to MyIOTO like one-click deploy and overwrites files in place. Old version folders are not removed.",
+	"MYIOTO Keep Version In Path": "Keep version in path",
+	"MYIOTO Flatten Version In Path": "Do not keep version in path",
+	"MYIOTO Update Cancelled": "MYIOTO update cancelled.",
 	"IOTO Update Settings": "IOTO Update Settings",
 	Basic: "Basic",
 	UserSyncTemplates: "User Sync Templates",

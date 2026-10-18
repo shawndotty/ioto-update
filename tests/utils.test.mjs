@@ -169,6 +169,16 @@ test('hasMyIotoContent 只认 MyIOTO 目录，兼容历史命名且不误匹配�
 		true,
 	);
 	assert.equal(
+		Utils.hasMyIotoContent([`${root}/MyIOTO-10-12-3/a.md`], '0-辅助/IOTO'),
+		true,
+		'两位数版本段也要认',
+	);
+	assert.equal(
+		Utils.hasMyIotoContent([`${root}/MyIOTO-Beta/a.md`], '0-辅助/IOTO'),
+		false,
+		'非数字版本段不算',
+	);
+	assert.equal(
 		Utils.hasMyIotoContent([`${root}/MyIOTOX/a.md`], '0-辅助/IOTO'),
 		false,
 		'同名前缀不算',

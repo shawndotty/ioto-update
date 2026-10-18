@@ -38,6 +38,12 @@ export default {
 	"MYIOTO Skipped By Setting": "已按設定跳過MYIOTO更新。",
 	"MYIOTO Initial Download Ignores Skip":
 		"首次部署會先下載MYIOTO內容，跳過設定從下一次一鍵部署開始生效。",
+	"MYIOTO SubFolder Mode Title": "更新 MYIOTO 模板",
+	"MYIOTO SubFolder Mode Description":
+		"選擇本次寫入的子目錄形式。「帶版本號」保留 MyIOTO-x-y-z 目錄；「不帶版本號」統一寫入 MyIOTO，與一鍵部署一致並原地覆蓋同名檔案。舊版本目錄不會自動刪除。",
+	"MYIOTO Keep Version In Path": "帶版本號",
+	"MYIOTO Flatten Version In Path": "不帶版本號",
+	"MYIOTO Update Cancelled": "已取消更新 MYIOTO 模板。",
 	"IOTO Update Settings": "IOTO更新設定",
 	Basic: "基本設定",
 	UserSyncTemplates: "用戶同步模板",
