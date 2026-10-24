@@ -176,6 +176,7 @@ export default {
 	TRAE: "TRAE",
 	Workbuddy: "Workbuddy",
 	DSH: "DeepSeek Harness",
+	Copilot: "Github Copilot",
 	Qoder: "Qoder",
 	PI: "Pi",
 	"Oh My Pi": "Oh My Pi",
