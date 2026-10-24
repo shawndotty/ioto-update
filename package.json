@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"build:local": "npm run build && node scripts/deploy-vault.mjs",
 		"build:deploy": "node scripts/deploy-release.mjs",
 		"deploy:starter": "node scripts/deploy-starter.mjs",
 		"test": "node --test --import ./tests/ts-loader.mjs tests/**/*.test.mjs",
