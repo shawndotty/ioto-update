@@ -112,3 +112,81 @@ input.invalid-input {
 .ioto-repo-link--gitee:hover {
     color: var(--text-normal);
 }
+/* 一键更新完整 IOTO 的悬浮进度面板（非 Modal：不抢焦点、不挡操作） */
+.ioto-full-update-panel {
+	position: fixed;
+	top: 24px;
+	right: 24px;
+	width: 340px;
+	max-height: 70vh;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px 14px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-primary);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+	/* 必须压在设置弹窗（--layer-modal 50）之上 */
+	z-index: var(--layer-notice);
+	font-size: var(--font-ui-small);
+}
+
+.ioto-fu-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-weight: 600;
+}
+
+.ioto-fu-bar {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--background-modifier-border);
+	overflow: hidden;
+}
+
+.ioto-fu-bar-fill {
+	height: 100%;
+	width: 0;
+	background: var(--interactive-accent);
+	transition: width 0.2s ease;
+}
+
+.ioto-fu-meta {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+	color: var(--text-muted);
+}
+
+.ioto-fu-current {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ioto-fu-list {
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.ioto-fu-row {
+	color: var(--text-normal);
+	word-break: break-word;
+}
+
+.ioto-fu-detail {
+	color: var(--text-muted);
+}
+
+.ioto-fu-footer {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	justify-content: flex-end;
+	color: var(--text-muted);
+}

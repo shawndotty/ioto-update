@@ -31,6 +31,18 @@ export interface IOTOPluginEntry {
  */
 export const SSG_VIEW_ID_WHITELIST = ["viwZvtQy1GDWu00sA", "viwwopZSx1IGoTiJE"];
 
+/**
+ * 旧插件 id → 当前 id。
+ *
+ * SlidesRup 在 v1.6.4 把 `manifest.id` 从 `slides-rup` 改成了 `slidesrup`
+ * （目录名一直是 `slidesrup`）。≤1.6.3 的老用户磁盘上仍是旧 id：
+ * 用新 id 查 `manifests` 会判成「未安装」，一键全量更新会静默漏掉它。
+ * 这里只登记真实发生过的改名，不做通用别名机制。
+ */
+export const LEGACY_PLUGIN_IDS: Record<string, string> = {
+	slidesrup: "slides-rup",
+};
+
 export const IOTO_PLUGINS: IOTOPluginEntry[] = [
 	{
 		key: "ioto-tasks-center",

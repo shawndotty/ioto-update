@@ -15,9 +15,12 @@ declare module "obsidian" {
 					id: string;
 					name: string;
 					version: string;
+					/** 插件文件所在目录（通常带 `.obsidian/plugins/` 前缀） */
+					dir?: string;
 					[k: string]: any;
 				};
 			};
+			enabledPlugins: Set<string>;
 		};
 		dom: {
 			appContainerEl: HTMLElement;
@@ -44,6 +47,11 @@ export interface IOTOUpdateSettings {
 	userSyncScriptsFolder: string;
 	skipMyIotoInAllUpdates?: boolean;
 	myIotoDeployed?: boolean;
+	/**
+	 * 基本设置里的「开始更新」是否走完整链路。
+	 * 默认 `false`：老用户升级后点「开始更新」仍只更新自身。
+	 */
+	fullUpdateInOneClick?: boolean;
 	updateIDs: {
 		iotoCore: {
 			baseID: string;

@@ -208,4 +208,22 @@ export default {
 	"Sync with MDB": "Sync with MDB",
 	"Sync with MDB.desc":
 		"與 Airtable、維格表、飛書、釘釘 AI 表格、WPS、NocoDB、Baserow 雙向同步資料。",
+	"Full Update In One Click": "一鍵更新完整 IOTO",
+	"Full Update In One Click Description":
+		"開啟後，「開始更新」按鈕會一次更新框架檔案、Setting 外掛、全部 IOTO 輔助外掛與此外掛，然後只重新載入一次 Obsidian。",
+	"One-Click Full Update": "一鍵更新完整 IOTO",
+	"Full Update Progress": "更新進度",
+	"Updating Framework": "正在更新框架檔案",
+	"Updating Framework Setting Plugin": "正在更新框架 Setting 外掛",
+	"Updating Auxiliary Plugins": "正在更新輔助外掛",
+	"Updating IOTO Update": "正在更新 IOTO Update 自身",
+	Skipped: "已跳過",
+	"Plugin updated": "已更新",
+	"Up to date": "已是最新",
+	"Dev version (skipped)": "本機為開發版，已跳過",
+	Failed: "失敗",
+	"Update finished": "更新完成",
+	"Reload Now": "立即重新載入",
+	"Reloading in": "即將重新載入",
+	"Migrated plugin id": "已遷移外掛 id",
 };

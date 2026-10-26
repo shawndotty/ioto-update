@@ -225,3 +225,219 @@ test('installPluginFrom 对非法地址给出提示', async () => {
 	await GiteeService.installPluginFrom({}, 'not-a-repo-url', { autoReload: false });
 	assert.ok(notices.includes('Invalid Gitee repository URL'));
 });
+
+// ---------------------------------------------------------------------------
+// 返回值契约 / 静音 / 版本判定 / 目录解析 / 旧 id 迁移
+// ---------------------------------------------------------------------------
+
+/** 造一个「有 release 附件」的 Gitee 桩：manifest + main.js。 */
+function stubGiteeRelease(manifest, mainJs = 'console.log(9)') {
+	return useRequest((url) => {
+		if (url.endsWith('/releases/latest')) {
+			return { status: 200, json: { id: 9, tag_name: `v${manifest.version}` } };
+		}
+		if (url.endsWith('/releases/9/attach_files')) {
+			return {
+				status: 200,
+				json: [
+					{ name: 'manifest.json', browser_download_url: 'https://gitee.example/manifest.json' },
+					{ name: 'main.js', browser_download_url: 'https://gitee.example/main.js' },
+				],
+			};
+		}
+		if (url.endsWith('/manifest.json')) {
+			return { status: 200, text: JSON.stringify(manifest) };
+		}
+		if (url.endsWith('/main.js')) {
+			return { status: 200, text: mainJs };
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+}
+
+function createInstalledApp({ files = {}, manifests = {}, enabled = [] } = {}) {
+	const writes = [];
+	const app = {
+		vault: {
+			configDir: '.obsidian',
+			adapter: {
+				async exists(path) {
+					return path in files;
+				},
+				async read(path) {
+					return files[path];
+				},
+				async mkdir() {},
+				async write(path, content) {
+					writes.push({ path, content });
+					files[path] = content;
+				},
+			},
+		},
+		plugins: { manifests, enabledPlugins: new Set(enabled) },
+	};
+	return { app, writes, files };
+}
+
+test('installPluginFrom 返回 updated 并带上前后版本', async () => {
+	stubGiteeRelease(MANIFEST);
+	const { app, writes } = createInstalledApp({
+		manifests: {
+			'ioto-dashboard': { id: 'ioto-dashboard', version: '1.0.0', dir: '.obsidian/plugins/ioto-dashboard' },
+		},
+	});
+
+	const result = await GiteeService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+	});
+
+	assert.equal(result.status, 'updated');
+	assert.equal(result.pluginId, 'ioto-dashboard');
+	assert.equal(result.fromVersion, '1.0.0');
+	assert.equal(result.toVersion, '2.0.0');
+	assert.equal(writes.length, 2);
+});
+
+test('本地版本等于远端时返回 up-to-date，且不写任何文件', async () => {
+	stubGiteeRelease(MANIFEST);
+	const { app, writes } = createInstalledApp({
+		manifests: {
+			'ioto-dashboard': { id: 'ioto-dashboard', version: '2.0.0', dir: '.obsidian/plugins/ioto-dashboard' },
+		},
+	});
+
+	const result = await GiteeService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+	});
+
+	assert.equal(result.status, 'up-to-date');
+	assert.deepEqual(writes, []);
+});
+
+test('本地版本高于远端（开发版）时返回 dev-version，不降级', async () => {
+	stubGiteeRelease(MANIFEST);
+	const { app, writes } = createInstalledApp({
+		manifests: {
+			'ioto-dashboard': { id: 'ioto-dashboard', version: '3.0.0', dir: '.obsidian/plugins/ioto-dashboard' },
+		},
+	});
+
+	const result = await GiteeService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+	});
+
+	assert.equal(result.status, 'dev-version');
+	assert.equal(result.fromVersion, '3.0.0');
+	assert.deepEqual(writes, [], '开发版绝不能被降级覆盖');
+});
+
+test('silent 为真时不发任何 Notice', async () => {
+	stubGiteeRelease(MANIFEST);
+	const { app } = createInstalledApp();
+	notices.length = 0;
+
+	await GiteeService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+	});
+
+	assert.deepEqual(notices, []);
+});
+
+test('写入目录取 manifests 的 dir，而不是用 id 拼路径', async () => {
+	stubGiteeRelease({ ...MANIFEST, id: 'slidesrup' });
+	const { app, writes } = createInstalledApp({
+		manifests: {
+			slidesrup: { id: 'slidesrup', version: '1.6.4', dir: '.obsidian/plugins/slidesrup' },
+		},
+	});
+
+	await GiteeService.installPluginFrom(
+		app,
+		'https://gitee.com/johnnylearns/slidesrup',
+		{ autoReload: false, silent: true },
+	);
+
+	assert.deepEqual(
+		writes.map((write) => write.path),
+		['.obsidian/plugins/slidesrup/manifest.json', '.obsidian/plugins/slidesrup/main.js'],
+	);
+});
+
+test('R9：旧 id 安装后写盘并把 community-plugins.json 原地迁移到新 id', async () => {
+	const remoteManifest = {
+		id: 'slidesrup',
+		name: 'SlidesRup',
+		version: '1.6.4',
+	};
+	stubGiteeRelease(remoteManifest);
+	const { app, writes } = createInstalledApp({
+		files: {
+			'.obsidian/community-plugins.json': '["dataview","slides-rup","text-popup"]',
+			'.obsidian/plugins/slidesrup/manifest.json': JSON.stringify({
+				id: 'slides-rup',
+				version: '1.6.3',
+			}),
+		},
+		manifests: {
+			'slides-rup': { id: 'slides-rup', version: '1.6.3', dir: '.obsidian/plugins/slidesrup' },
+		},
+		enabled: ['slides-rup'],
+	});
+
+	const result = await GiteeService.installPluginFrom(
+		app,
+		'https://gitee.com/johnnylearns/slidesrup',
+		{ autoReload: false, silent: true },
+	);
+
+	assert.equal(result.status, 'updated');
+	assert.equal(result.legacyId, 'slides-rup');
+	assert.equal(result.fromVersion, '1.6.3', '旧 id 也要判出已安装并读出版本');
+
+	const communityWrite = writes.find((write) =>
+		write.path.endsWith('community-plugins.json'),
+	);
+	assert.ok(communityWrite, '应写回 community-plugins.json');
+	assert.deepEqual(JSON.parse(communityWrite.content), [
+		'dataview',
+		'slidesrup',
+		'text-popup',
+	], '顺序不变、旧 id 换新 id、不重复');
+});
+
+test('R9：用户原本未启用旧 id 时迁移不新增条目', async () => {
+	stubGiteeRelease({
+		id: 'slidesrup',
+		name: 'SlidesRup',
+		version: '1.6.4',
+	});
+	const { app, writes } = createInstalledApp({
+		files: {
+			'.obsidian/community-plugins.json': '["dataview"]',
+			'.obsidian/plugins/slidesrup/manifest.json': JSON.stringify({
+				id: 'slides-rup',
+				version: '1.6.3',
+			}),
+		},
+		manifests: {
+			'slides-rup': { id: 'slides-rup', version: '1.6.3', dir: '.obsidian/plugins/slidesrup' },
+		},
+		enabled: [],
+	});
+
+	await GiteeService.installPluginFrom(
+		app,
+		'https://gitee.com/johnnylearns/slidesrup',
+		{ autoReload: false, silent: true },
+	);
+
+	assert.equal(
+		writes.some((write) => write.path.endsWith('community-plugins.json')),
+		false,
+		'未启用就不该动 community-plugins.json',
+	);
+});

@@ -7,7 +7,7 @@ import {
 	NocoDBSettings,
 } from "../types";
 import { NocoDB } from "./db-syncer/nocodb";
-import { NocoDBSync } from "./db-syncer/nocodb-sync";
+import { NocoDBSync, NocoDBSyncOptions } from "./db-syncer/nocodb-sync";
 import { ObsidianSyncer } from "./db-syncer/ob-syncer";
 import { Utils } from "../utils";
 import { TemplaterService } from "./templater-service";
@@ -16,7 +16,14 @@ import { GithubService } from "./github-service";
 import { GiteeService } from "./gitee-service";
 import { PluginService } from "./plugin-service";
 import { AIPlatformSuggester } from "../suggesters/ai-platform-suggester";
-import { IOTO_PLUGINS, isSSGViewIDAllowed } from "./plugin-registry";
+import { IOTO_PLUGINS, IOTOPluginEntry, isSSGViewIDAllowed } from "./plugin-registry";
+import {
+	runFullUpdate,
+	StageItem,
+	StageResult,
+} from "./full-update-service";
+import { InstallPluginResult } from "./install-types";
+import { FullUpdateProgressPanel } from "../ui/progress-panel";
 import {
 	askMyIotoSubFolderMode,
 	MyIotoSubFolderMode,
@@ -44,6 +51,7 @@ export class CommandService {
 	private templaterService: TemplaterService;
 	private userSyncSettingAirtableIds: AirtableIds | null;
 	private apiService: ApiService;
+	private progressPanel: FullUpdateProgressPanel | null = null;
 
 	constructor(
 		app: App,
@@ -169,6 +177,17 @@ export class CommandService {
 			});
 
 			this.createRunAllUpdatesCommand(commandConfigs);
+
+			// 低频操作 → 只进命令面板，不加 Ribbon。
+			// 存在的原因：「开始更新」按钮只在自身有新版本时出现，
+			// 而「框架或辅助插件有更新、自身没更新」的日子也需要一个入口。
+			this.addCommand({
+				id: "full-update-ioto",
+				name: t("One-Click Full Update"),
+				callback: async () => {
+					await this.startFullUpdate();
+				},
+			});
 
 			this.addCommand({
 				id: "get-skills",
@@ -341,6 +360,7 @@ export class CommandService {
 		filterRecordsByDate: boolean = false,
 		apiKey: string = this.settings.updateAPIKey,
 		forceDefaultFetchFields: boolean = false,
+		progressOptions?: NocoDBSyncOptions,
 	) {
 		const fieldNames = Utils.buildFieldNames(
 			forceDefaultFetchFields,
@@ -355,7 +375,11 @@ export class CommandService {
 			},
 		};
 		const nocoDB = new NocoDB(nocoDBSettings);
-		const nocoDBSync = new NocoDBSync(nocoDB, this.app);
+		const nocoDBSync = new NocoDBSync(
+			nocoDB,
+			this.app,
+			progressOptions,
+		);
 		const obSyncer = new ObsidianSyncer(this.app, nocoDBSync);
 		await obSyncer.onlyFetchFromNocoDB(
 			tableConfig,
@@ -460,111 +484,192 @@ export class CommandService {
 			id: "run-all-updates",
 			name: t("Deploy IOTO With One Click"),
 			callback: async () => {
-				const skipRequested =
-					this.plugin.settings.skipMyIotoInAllUpdates === true;
-				const deployed = this.plugin.settings.myIotoDeployed;
-				const needsLocalCheck =
-					skipRequested && deployed === undefined;
-				const initialized =
-					deployed === true ||
-					(needsLocalCheck &&
-						Utils.hasMyIotoContent(
-							this.app.vault
-								.getFiles()
-								.map((file: { path: string }) => file.path),
-							this.plugin.settings.iotoFrameworkPath
-						));
-
-				const skipMyIoto = skipRequested && initialized;
-				const forceInitialDownload = skipRequested && !initialized;
-
-				// 老用户一次性迁移：本地已有内容即视为已部署，之后不再依赖目录扫描
-				if (needsLocalCheck && initialized) {
-					this.plugin.settings.myIotoDeployed = true;
-					await this.plugin.saveSettings();
+				const result = await this.runFrameworkUpdate(commandConfigs);
+				// 只有全部表都成功才启用 ioto-settings（文件没下全，启用无意义）；
+				// 但只要写过文件就重载，让 CSS / 框架文件的改动生效。
+				if (result.status === "done") {
+					await this.enableIotoSettingsPlugin();
 				}
-
-				const updateTasks = commandConfigs
-					.filter((config) => config.isPartOfAllUpdates)
-					.filter(
-						(config) =>
-							!(skipMyIoto && config.id === "get-myioto")
-					)
-					.map((config) => ({
-						id: config.id,
-						name: config.name,
-						tableConfig: config.tableConfig(),
-					}));
-
-				if (skipMyIoto) {
-					new Notice(t("MYIOTO Skipped By Setting"));
-				} else if (forceInitialDownload) {
-					new Notice(t("MYIOTO Initial Download Ignores Skip"));
+				if (result.status !== "failed") {
+					this.app.commands.executeCommandById("app:reload");
 				}
-
-				await this.withDisabledTemplaterTrigger(async () => {
-					const updatePromises = updateTasks.map((task) => {
-						return (async () => {
-							try {
-								new Notice(`${t("Executing")} ${task.name}...`);
-								// 优化写法，直接通过对象映射判断是否需要设置 intialSetup
-								const needInitialSetupIds = new Set([
-									"get-myioto",
-								]);
-								if (needInitialSetupIds.has(task.id)) {
-									task.tableConfig.intialSetup = true;
-								}
-								await this.executeNocoDBCommand(
-									task.tableConfig
-								);
-
-								if (
-									task.id === "get-myioto" &&
-									forceInitialDownload
-								) {
-									this.plugin.settings.myIotoDeployed = true;
-									await this.plugin.saveSettings();
-								}
-
-								new Notice(`${task.name} ${t("completed")}`);
-								return {
-									status: "fulfilled",
-									name: task.name,
-								};
-							} catch (error) {
-								if (
-									task.id === "get-myioto" &&
-									forceInitialDownload
-								) {
-									this.plugin.settings.myIotoDeployed = false;
-									await this.plugin.saveSettings();
-								}
-								new Notice(
-									`${task.name} ${t("failed")}: ${
-										error.message
-									}`,
-								);
-								return {
-									status: "rejected",
-									name: task.name,
-									reason: error,
-								};
-							}
-						})();
-					});
-
-					const results = await Promise.allSettled(updatePromises);
-					const successfulUpdates = results.filter(
-						(r) => r.status === "fulfilled",
-					).length;
-
-					if (successfulUpdates === updateTasks.length) {
-						await this.enableIotoSettingsPlugin();
-						this.app.commands.executeCommandById("app:reload");
-					}
-				});
 			},
 		});
+	}
+
+	/**
+	 * 框架文件阶段（core / help docs / myioto / css，可选 setting-plugin）。
+	 *
+	 * 从「一键部署」里原样抽出：MyIOTO 的跳过 / 首次下载 / 一次性迁移逻辑保持不变，
+	 * 只是额外返回结构化的阶段结果，并支持文件级进度回调。
+	 * 阶段内各表并行、单表失败不中断（沿用旧行为）。
+	 */
+	private async runFrameworkUpdate(
+		commandConfigs: CommandConfig[],
+		onProgress?: (done: number, total: number) => void,
+	): Promise<StageResult> {
+		const skipRequested =
+			this.plugin.settings.skipMyIotoInAllUpdates === true;
+		const deployed = this.plugin.settings.myIotoDeployed;
+		const needsLocalCheck = skipRequested && deployed === undefined;
+		const initialized =
+			deployed === true ||
+			(needsLocalCheck &&
+				Utils.hasMyIotoContent(
+					this.app.vault
+						.getFiles()
+						.map((file: { path: string }) => file.path),
+					this.plugin.settings.iotoFrameworkPath
+				));
+
+		const skipMyIoto = skipRequested && initialized;
+		const forceInitialDownload = skipRequested && !initialized;
+
+		// 老用户一次性迁移：本地已有内容即视为已部署，之后不再依赖目录扫描
+		if (needsLocalCheck && initialized) {
+			this.plugin.settings.myIotoDeployed = true;
+			await this.plugin.saveSettings();
+		}
+
+		const updateTasks = commandConfigs
+			.filter((config) => config.isPartOfAllUpdates)
+			.filter(
+				(config) => !(skipMyIoto && config.id === "get-myioto")
+			)
+			.map((config) => ({
+				id: config.id,
+				name: config.name,
+				tableConfig: config.tableConfig(),
+			}));
+
+		if (skipMyIoto) {
+			new Notice(t("MYIOTO Skipped By Setting"));
+		} else if (forceInitialDownload) {
+			new Notice(t("MYIOTO Initial Download Ignores Skip"));
+		}
+
+		const items: StageItem[] = [];
+		// 4 张表并行时，文件级进度会互相穿插：按表记录最新值再求和，
+		// 保证整体进度只增不减（面板不会来回跳）。
+		const fileDoneByTable = new Map<string, number>();
+		const fileTotalByTable = new Map<string, number>();
+		const reportProgress = () => {
+			if (!onProgress) return;
+			let done = 0;
+			let total = 0;
+			fileDoneByTable.forEach((value) => (done += value));
+			fileTotalByTable.forEach((value) => (total += value));
+			onProgress(done, total);
+		};
+
+		await this.withDisabledTemplaterTrigger(async () => {
+			const updatePromises = updateTasks.map((task) => {
+				return (async () => {
+					try {
+						new Notice(`${t("Executing")} ${task.name}...`);
+						// 优化写法，直接通过对象映射判断是否需要设置 intialSetup
+						const needInitialSetupIds = new Set([
+							"get-myioto",
+						]);
+						if (needInitialSetupIds.has(task.id)) {
+							task.tableConfig.intialSetup = true;
+						}
+						await this.executeNocoDBCommand(
+							task.tableConfig,
+							true,
+							false,
+							this.settings.updateAPIKey,
+							false,
+							{
+								// 编排链路一律静音：进度由面板汇报，不再逐表弹 Notice
+								quiet: onProgress !== undefined,
+								onProgress: (done, total) => {
+									fileDoneByTable.set(task.id, done);
+									fileTotalByTable.set(task.id, total);
+									reportProgress();
+								},
+							}
+						);
+
+						if (
+							task.id === "get-myioto" &&
+							forceInitialDownload
+						) {
+							this.plugin.settings.myIotoDeployed = true;
+							await this.plugin.saveSettings();
+						}
+
+						new Notice(`${task.name} ${t("completed")}`);
+						return {
+							status: "fulfilled",
+							name: task.name,
+						};
+					} catch (error) {
+						if (
+							task.id === "get-myioto" &&
+							forceInitialDownload
+						) {
+							this.plugin.settings.myIotoDeployed = false;
+							await this.plugin.saveSettings();
+						}
+						new Notice(
+							`${task.name} ${t("failed")}: ${
+								error.message
+							}`,
+						);
+						return {
+							status: "rejected",
+							name: task.name,
+							reason: error,
+						};
+					}
+				})();
+			});
+
+			const results = await Promise.allSettled(updatePromises);
+			results.forEach((result, index) => {
+				const name = updateTasks[index].name;
+				if (result.status === "fulfilled") {
+					const value = result.value as {
+						status: string;
+						reason?: unknown;
+					};
+					if (value.status === "fulfilled") {
+						items.push({ label: name, status: "updated" });
+					} else {
+						items.push({
+							label: name,
+							status: "failed",
+							detail:
+								value.reason instanceof Error
+									? value.reason.message
+									: String(value.reason),
+						});
+					}
+				} else {
+					items.push({
+						label: name,
+						status: "failed",
+						detail:
+							result.reason instanceof Error
+								? result.reason.message
+								: String(result.reason),
+					});
+				}
+			});
+		});
+
+		const failedCount = items.filter(
+			(item) => item.status === "failed",
+		).length;
+		const status: StageResult["status"] =
+			items.length > 0 && failedCount === 0
+				? "done"
+				: failedCount === items.length
+				? "failed"
+				: "partial";
+
+		return { stage: "framework", status, items };
 	}
 
 	private async executeWithReload(
@@ -596,13 +701,161 @@ export class CommandService {
 			new Notice(`Unknown plugin: ${key}`);
 			return;
 		}
+		await this.installEntry(entry);
+	}
+
+	/** 按下载源把一条注册项交给 GitHub / Gitee 服务。 */
+	private async installEntry(
+		entry: IOTOPluginEntry,
+		options: { autoReload?: boolean; silent?: boolean } = {},
+	): Promise<InstallPluginResult> {
 		const source = this.settings.pluginDownloadSource || "gitee";
 		const repoUrl =
 			source === "github" ? entry.githubUrl : entry.giteeUrl;
 		if (source === "github") {
-			await GithubService.installPluginFrom(this.app, repoUrl);
-		} else {
-			await GiteeService.installPluginFrom(this.app, repoUrl);
+			return GithubService.installPluginFrom(this.app, repoUrl, options);
 		}
+		return GiteeService.installPluginFrom(this.app, repoUrl, options);
+	}
+
+	/**
+	 * 阶段 3 的单个辅助插件：
+	 * - 未安装 → 跳过（不下载、不新建目录）；
+	 * - SSG 白名单外 → 跳过；
+	 * - 否则静音更新，结果由返回值上报。
+	 */
+	async updateAuxPluginByKey(key: string): Promise<InstallPluginResult> {
+		const entry = IOTO_PLUGINS.find((p) => p.key === key);
+		if (!entry) {
+			return { status: "not-found", pluginId: key, error: "unknown-key" };
+		}
+
+		if (
+			entry.requireViewID &&
+			!isSSGViewIDAllowed(
+				this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID,
+			)
+		) {
+			return { status: "skipped", pluginId: key, error: "view-id" };
+		}
+
+		if (!PluginService.resolveInstalledPluginId(this.app, key)) {
+			return { status: "skipped", pluginId: key, error: "not-installed" };
+		}
+
+		return this.installEntry(entry, { autoReload: false, silent: true });
+	}
+
+	/** 阶段 2：Framework Setting 插件（+ 按需启用 ioto-settings）。 */
+	private async updateSettingPluginStage(
+		frameworkFailed: boolean,
+	): Promise<StageResult> {
+		const config = this.getCommandConfigs().find(
+			(c) => c.id === "get-setting-plugin",
+		);
+		if (!config) {
+			return { stage: "setting-plugin", status: "skipped", items: [] };
+		}
+
+		try {
+			await this.executeNocoDBCommand(
+				config.tableConfig(),
+				true,
+				false,
+				this.settings.updateAPIKey,
+				false,
+				{ quiet: true },
+			);
+			// 框架文件没下全时不启用：启用一个半套的插件没有意义
+			if (!frameworkFailed) {
+				await this.enableIotoSettingsPlugin();
+			}
+			return {
+				stage: "setting-plugin",
+				status: "done",
+				items: [{ label: config.name, status: "updated" }],
+			};
+		} catch (error) {
+			return {
+				stage: "setting-plugin",
+				status: "failed",
+				items: [
+					{
+						label: config.name,
+						status: "failed",
+						detail: error?.message ?? String(error),
+					},
+				],
+			};
+		}
+	}
+
+	/** 阶段 4：自身（最后执行，且不经过 reloadAndEnablePlugin）。 */
+	private async updateSelfPlugin(): Promise<InstallPluginResult> {
+		const source = this.settings.pluginDownloadSource || "gitee";
+		const repoUrl =
+			source === "github"
+				? "https://github.com/shawndotty/ioto-update"
+				: "https://gitee.com/johnnylearns/ioto-update";
+		if (source === "github") {
+			return GithubService.installPluginFrom(this.app, repoUrl, {
+				autoReload: false,
+				silent: true,
+			});
+		}
+		return GiteeService.installPluginFrom(this.app, repoUrl, {
+			autoReload: false,
+			silent: true,
+		});
+	}
+
+	/**
+	 * 进度面板工厂。单测里覆写成 `() => null` 即可完全脱离 DOM。
+	 */
+	createProgressPanel(): FullUpdateProgressPanel | null {
+		return new FullUpdateProgressPanel();
+	}
+
+	destroyProgressPanel() {
+		if (this.progressPanel) {
+			this.progressPanel.destroy();
+			this.progressPanel = null;
+		}
+	}
+
+	/**
+	 * 一键更新完整 IOTO：框架 → Setting 插件 → 11 个辅助插件 → 自身。
+	 *
+	 * 面板订阅编排器事件；重载交给面板做 3 秒倒计时（没有面板时直接重载）。
+	 */
+	async startFullUpdate(): Promise<void> {
+		this.destroyProgressPanel();
+		const panel = this.createProgressPanel();
+		this.progressPanel = panel;
+
+		const frameworkConfigs = this.getCommandConfigs().filter(
+			(config) =>
+				config.isPartOfAllUpdates && config.id !== "get-setting-plugin",
+		);
+
+		await runFullUpdate({
+			auxPluginKeys: IOTO_PLUGINS.map((entry) => entry.key),
+			runFrameworkStage: (onProgress) =>
+				this.runFrameworkUpdate(frameworkConfigs, onProgress),
+			updateSettingPlugin: ({ frameworkFailed }) =>
+				this.updateSettingPluginStage(frameworkFailed),
+			updateAuxPlugin: (key) => this.updateAuxPluginByKey(key),
+			updateSelf: () => this.updateSelfPlugin(),
+			reloadApp: () => {
+				const reload = () =>
+					this.app.commands.executeCommandById("app:reload");
+				if (panel) {
+					panel.requestReload(reload);
+				} else {
+					reload();
+				}
+			},
+			onEvent: (event) => panel?.handle(event),
+		});
 	}
 }

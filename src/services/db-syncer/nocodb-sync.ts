@@ -11,6 +11,16 @@ import { DateFilterSuggester } from "../../suggesters/date-filter-suggester";
 
 declare function requestUrl(options: any): Promise<any>;
 
+export interface NocoDBSyncOptions {
+	/**
+	 * 文件级进度回调：每处理完一个文件回调一次（`done` 从 0 递增到 `total`）。
+	 * 一键全量更新用它把 4 张表的进度汇总成「当前拉到哪一步」。
+	 */
+	onProgress?: (done: number, total: number) => void;
+	/** 静音：编排链路里由进度面板统一汇报，不再弹每批次的 Notice。 */
+	quiet?: boolean;
+}
+
 export class NocoDBSync {
 	nocodb: NocoDB;
 	app: any;
@@ -22,8 +32,10 @@ export class NocoDBSync {
 	subFolder: string;
 	extension: string;
 	updatedIn: string;
+	onProgress?: (done: number, total: number) => void;
+	quiet: boolean;
 
-	constructor(nocodb: NocoDB, app: any) {
+	constructor(nocodb: NocoDB, app: any, options: NocoDBSyncOptions = {}) {
 		this.nocodb = nocodb;
 		this.app = app;
 		this.vault = app.vault;
@@ -34,6 +46,8 @@ export class NocoDBSync {
 		this.subFolder = this.nocodb.recordFieldsNames.subFolder;
 		this.extension = this.nocodb.recordFieldsNames.extension;
 		this.updatedIn = this.nocodb.recordFieldsNames.updatedIn;
+		this.onProgress = options.onProgress;
+		this.quiet = options.quiet === true;
 	}
 
 	getFetchSourceTable(sourceViewID: string): NocoDBTable | undefined {
@@ -82,7 +96,7 @@ export class NocoDBSync {
 		${fields.map((f) => `fields%5B%5D=${encodeURIComponent(f)}`).join("&")}
 			${dateFilterFormula}
 			&offset=`;
-		new Notice(t("Getting Data ……"));
+		if (!this.quiet) new Notice(t("Getting Data ……"));
 		let records = await this.getAllRecordsFromTable(url);
 
 		if (!records || records.length === 0) {
@@ -138,7 +152,9 @@ export class NocoDBSync {
 
 				const data = responseObj.json;
 				records = records.concat(data.records);
-				new Notice(`${t("Got")} ${records.length} ${t("records")}`);
+				if (!this.quiet) {
+					new Notice(`${t("Got")} ${records.length} ${t("records")}`);
+				}
 
 				offset = data.offset || "";
 			} catch (error) {
@@ -187,11 +203,17 @@ export class NocoDBSync {
 			});
 		}
 
-		new Notice(
-			`${t("There are")} ${notesToCreateOrUpdate.length} ${t(
-				"files needed to be updated or created.",
-			)}`,
-		);
+		if (!this.quiet) {
+			new Notice(
+				`${t("There are")} ${notesToCreateOrUpdate.length} ${t(
+					"files needed to be updated or created.",
+				)}`,
+			);
+		}
+
+		const totalNotes = notesToCreateOrUpdate.length;
+		let processedNotes = 0;
+		this.onProgress?.(0, totalNotes);
 
 		let configDirModified = 0;
 
@@ -224,16 +246,20 @@ export class NocoDBSync {
 					await vault.modify(file, noteContent);
 					await new Promise((r) => setTimeout(r, 100)); // 等待元数据更新
 				}
+				processedNotes += 1;
+				this.onProgress?.(processedNotes, totalNotes);
 			}
 
 			notesToCreateOrUpdate = notesToCreateOrUpdate.slice(10);
 			if (notesToCreateOrUpdate.length) {
-				new Notice(
-					`${t("There are")} ${notesToCreateOrUpdate.length} ${t(
-						"files needed to be processed.",
-					)}`,
-				);
-			} else {
+				if (!this.quiet) {
+					new Notice(
+						`${t("There are")} ${notesToCreateOrUpdate.length} ${t(
+							"files needed to be processed.",
+						)}`,
+					);
+				}
+			} else if (!this.quiet) {
 				new Notice(t("All Finished."));
 			}
 		}

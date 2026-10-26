@@ -235,4 +235,22 @@ export default {
 	"Sync with MDB": "Sync with MDB",
 	"Sync with MDB.desc":
 		"Sync your notes with Airtable, Vika, Feishu, DingDing AI Table, WPS, NocoDB and Baserow.",
+	"Full Update In One Click": "Full update in one click",
+	"Full Update In One Click Description":
+		"When enabled, the Start Update button updates the framework, the setting plugin, all IOTO auxiliary plugins and this plugin in one run, then reloads Obsidian once.",
+	"One-Click Full Update": "Update Complete IOTO With One Click",
+	"Full Update Progress": "Full Update Progress",
+	"Updating Framework": "Updating framework files",
+	"Updating Framework Setting Plugin": "Updating framework setting plugin",
+	"Updating Auxiliary Plugins": "Updating auxiliary plugins",
+	"Updating IOTO Update": "Updating IOTO Update",
+	Skipped: "Skipped",
+	"Plugin updated": "Updated",
+	"Up to date": "Up to date",
+	"Dev version (skipped)": "Local dev version, skipped",
+	Failed: "Failed",
+	"Update finished": "Update finished",
+	"Reload Now": "Reload now",
+	"Reloading in": "Reloading in",
+	"Migrated plugin id": "Migrated plugin id",
 };

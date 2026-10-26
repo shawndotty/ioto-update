@@ -84,8 +84,8 @@ function createApp(options = {}) {
 		},
 		plugins: {
 			plugins: { ...(options.plugins ?? {}) },
-			manifests: {},
-			enabledPlugins: new Set(),
+			manifests: { ...(options.manifests ?? {}) },
+			enabledPlugins: new Set(options.enabled ?? []),
 			async loadManifests() {},
 			async disablePlugin() {},
 			async enablePlugin(id) {
@@ -173,6 +173,7 @@ test('授权通过时注册 5 个数据源命令 + 一键部署 + 安装类命�
 			'get-setting-plugin',
 			'get-user-sync-scripts',
 			'run-all-updates',
+			'full-update-ioto',
 			'get-skills',
 			'update-user-permissions',
 			'install-itg-from-github',
@@ -631,4 +632,167 @@ test('createNocoDBCommand 在同步抛错时用 Notice 展示错误信息', asyn
 	notices.length = 0;
 	await commands.find((command) => command.id === 'get-core-files').callback();
 	assert.ok(notices.includes('network down'));
+});
+
+// ---------------------------------------------------------------------------
+// 一键更新完整 IOTO 的接线（编排器本身在 full-update.test.mjs 里）
+// ---------------------------------------------------------------------------
+
+const ALL_MANIFESTS = Object.fromEntries(
+	[
+		'ioto-tasks-center',
+		'ioto-template-generator',
+		'sync-script-generator',
+		'ioto-dashboard',
+		'text-popup',
+		'my-text-tools',
+		'slidesrup',
+		'obsidian-airtable-fetcher',
+		'obsidian-feishu-fetcher',
+		'obsidian-vika-fetcher',
+		'ob-sync-with-mdb',
+	].map((id) => [id, { id, version: '1.0.0' }]),
+);
+
+/** 临时替换两个下载服务的 installPluginFrom，记录调用参数。 */
+function stubInstall(handler) {
+	const originalGithub = GithubService.installPluginFrom;
+	const originalGitee = GiteeService.installPluginFrom;
+	const calls = [];
+	const wrap = (source) =>
+		async (app, url, options) => {
+			calls.push({ source, url, options });
+			return handler({ source, url, options });
+		};
+	GithubService.installPluginFrom = wrap('github');
+	GiteeService.installPluginFrom = wrap('gitee');
+	return {
+		calls,
+		restore() {
+			GithubService.installPluginFrom = originalGithub;
+			GiteeService.installPluginFrom = originalGitee;
+		},
+	};
+}
+
+test('未安装的辅助插件直接跳过，不进下载队列', async () => {
+	const { service } = createService({}, {
+		manifests: { 'ob-sync-with-mdb': { id: 'ob-sync-with-mdb', version: '2.0.6' } },
+	});
+	const stub = stubInstall(async () => ({ status: 'up-to-date' }));
+
+	try {
+		const missing = await service.updateAuxPluginByKey('text-popup');
+		assert.equal(missing.status, 'skipped');
+		assert.deepEqual(stub.calls, [], '未安装就不该发任何下载请求');
+
+		const installed = await service.updateAuxPluginByKey('ob-sync-with-mdb');
+		assert.equal(installed.status, 'up-to-date');
+		assert.deepEqual(stub.calls, [
+			{
+				source: 'gitee',
+				url: 'https://gitee.com/johnnylearns/ob-sync-with-mdb',
+				options: { autoReload: false, silent: true },
+			},
+		], '编排链路必须静音且不自动重载');
+	} finally {
+		stub.restore();
+	}
+});
+
+test('SSG 白名单外即使已安装也跳过，白名单内才下载', async () => {
+	const blocked = createService({}, {
+		manifests: { 'sync-script-generator': { id: 'sync-script-generator', version: '1.0.0' } },
+	});
+	const stub = stubInstall(async () => ({ status: 'updated' }));
+	try {
+		const result = await blocked.service.updateAuxPluginByKey('sync-script-generator');
+		assert.equal(result.status, 'skipped');
+		assert.deepEqual(stub.calls, []);
+	} finally {
+		stub.restore();
+	}
+
+	const allowed = createService(
+		{
+			updateIDs: {
+				...SETTINGS.updateIDs,
+				iotoSettingPlugin: {
+					baseID: 'appSetting',
+					tableID: 'tblSetting',
+					viewID: 'viwZvtQy1GDWu00sA',
+				},
+			},
+		},
+		{
+			manifests: { 'sync-script-generator': { id: 'sync-script-generator', version: '1.0.0' } },
+		},
+	);
+	const stub2 = stubInstall(async () => ({ status: 'updated' }));
+	try {
+		const result = await allowed.service.updateAuxPluginByKey('sync-script-generator');
+		assert.equal(result.status, 'updated');
+		assert.equal(stub2.calls.length, 1);
+	} finally {
+		stub2.restore();
+	}
+});
+
+test('一键更新完整 IOTO：框架 4 表 → Setting 表 → 11 个插件 → 自身，只重载一次', async () => {
+	const { service, commands, reloads } = createService({}, {
+		manifests: ALL_MANIFESTS,
+	});
+	service.registerCommands();
+	// 单测没有 DOM：进度面板整体关掉（与既有 askMyIotoSubFolderMode 同一注入方式）
+	service.createProgressPanel = () => null;
+
+	const tables = [];
+	service.executeNocoDBCommand = async (tableConfig) => {
+		tables.push(tableConfig.viewID);
+	};
+
+	const stub = stubInstall(async () => ({ status: 'up-to-date' }));
+	try {
+		await commands.find((command) => command.id === 'full-update-ioto').callback();
+	} finally {
+		stub.restore();
+	}
+
+	assert.deepEqual(tables, ['viwCore', 'viwHelp', 'viwMy', 'viwCss', 'viwSetting']);
+	assert.equal(
+		stub.calls.length,
+		11,
+		"10 个辅助插件（SSG 不在白名单，已跳过）+ 自身",
+	);
+	assert.equal(
+		stub.calls.at(-1).url,
+		'https://gitee.com/johnnylearns/ioto-update',
+		'自身必须最后执行',
+	);
+	assert.deepEqual(reloads, ['app:reload']);
+});
+
+test('一键更新完整 IOTO 在框架失败时仍跑完辅助插件，且不启用 Setting 插件', async () => {
+	const { service, commands, app, enabled } = createService({}, {
+		manifests: ALL_MANIFESTS,
+	});
+	service.registerCommands();
+	service.createProgressPanel = () => null;
+
+	service.executeNocoDBCommand = async (tableConfig) => {
+		if (tableConfig.viewID !== 'viwSetting') {
+			throw new Error('framework down');
+		}
+	};
+
+	const stub = stubInstall(async () => ({ status: 'up-to-date' }));
+	try {
+		await commands.find((command) => command.id === 'full-update-ioto').callback();
+	} finally {
+		stub.restore();
+	}
+
+	assert.equal(stub.calls.length, 11, "框架失败不影响阶段 3 / 4（SSG 仍按白名单跳过）");
+	assert.deepEqual(app.plugins.enabledPlugins, new Set(), '失败时不该启用 ioto-settings');
+	assert.deepEqual(enabled, []);
 });

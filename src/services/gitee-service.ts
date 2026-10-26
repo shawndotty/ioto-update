@@ -1,7 +1,14 @@
 import { App, Notice, requestUrl } from "obsidian";
 import { t } from "../lang/helpers";
+import { Utils } from "../utils";
+import {
+	InstallPluginOptions,
+	InstallPluginResult,
+} from "./install-types";
 import { PluginService } from "./plugin-service";
-import { InstallPluginOptions } from "./github-service";
+
+/** 单次网络请求超时：超过即判失败，避免 11 个插件串行时被一个卡死的请求拖住。 */
+const REQUEST_TIMEOUT_MS = 30 * 1000;
 
 export class GiteeService {
 	/**
@@ -35,26 +42,32 @@ export class GiteeService {
 	 * @param app Obsidian App 实例
 	 * @param repoUrl Gitee 仓库地址（例如：https://gitee.com/owner/repo 或 owner/repo）
 	 * @param options 可选安装行为参数。
+	 * @returns 判定结果。旧调用方可直接忽略（以前返回 `void`）。
 	 */
 	static async installPluginFrom(
 		app: App,
 		repoUrl: string,
 		options: InstallPluginOptions = {},
-	): Promise<void> {
-		const { autoReload = true } = options;
+	): Promise<InstallPluginResult> {
+		const { autoReload = true, silent = false } = options;
 		let notice: Notice | null = null;
+		const notify = (message: string, timeout?: number) => {
+			if (!silent) new Notice(message, timeout);
+		};
 		try {
 			const repoInfo = this.parseRepoUrl(repoUrl);
 			if (!repoInfo) {
-				new Notice(t("Invalid Gitee repository URL"));
-				return;
+				notify(t("Invalid Gitee repository URL"));
+				return { status: "not-found", error: "invalid-repo-url" };
 			}
 			const { owner, repo } = repoInfo;
 
-			notice = new Notice(
-				`${t("Checking for updates from")} ${owner}/${repo}...`,
-				0,
-			);
+			if (!silent) {
+				notice = new Notice(
+					`${t("Checking for updates from")} ${owner}/${repo}...`,
+					0,
+				);
+			}
 
 			// 获取插件 release 文件（manifest.json / main.js / styles.css），
 			// 内部会先尝试 Gitee API，失败时降级到 releases 页面抓取 tag 后直接下载，
@@ -62,8 +75,8 @@ export class GiteeService {
 			const files = await this.fetchPluginReleaseFiles(owner, repo);
 			if (!files || !files.manifestContent || !files.mainJsContent) {
 				if (notice) notice.hide();
-				new Notice(t("No release found for this repository"));
-				return;
+				notify(t("No release found for this repository"));
+				return { status: "not-found", error: "no-release" };
 			}
 
 			const manifest = JSON.parse(files.manifestContent);
@@ -71,27 +84,72 @@ export class GiteeService {
 
 			if (!pluginId) {
 				if (notice) notice.hide();
-				new Notice(t("Invalid manifest.json: missing 'id' field"));
-				return;
+				notify(t("Invalid manifest.json: missing 'id' field"));
+				return { status: "failed", error: "missing-id" };
 			}
 
-			// @ts-ignore
-			const installedPlugin = app.plugins.manifests?.[pluginId];
-			if (
-				installedPlugin &&
-				installedPlugin.version === manifest.version
-			) {
-				if (notice) notice.hide();
-				new Notice(
-					`${t("Plugin")} "${manifest.name}" ${t("is already up to date")}`,
+			const base: Omit<InstallPluginResult, "status"> = {
+				pluginId,
+				name: manifest.name,
+				toVersion: manifest.version,
+			};
+
+			// 判定「是否已安装」要兼容旧 id（SlidesRup 改过 id）
+			const installedId = PluginService.resolveInstalledPluginId(
+				app,
+				pluginId,
+			);
+			const legacyId =
+				installedId && installedId !== pluginId
+					? installedId
+					: undefined;
+			const resultBase: Omit<InstallPluginResult, "status"> = { ...base, legacyId };
+
+			// 本地版本以磁盘为准（内存 manifests 可能滞后）；未安装时不做版本比较
+			const local = installedId
+				? await PluginService.readInstalledManifest(app, installedId)
+				: null;
+			const localVersion = local?.version;
+
+			if (localVersion) {
+				const cmp = Utils.compareVersions(
+					localVersion,
+					manifest.version,
 				);
-				return;
+				if (cmp === 0) {
+					if (notice) notice.hide();
+					notify(
+						`${t("Plugin")} "${manifest.name}" ${t(
+							"is already up to date",
+						)}`,
+					);
+					return {
+						...resultBase,
+						status: "up-to-date",
+						fromVersion: localVersion,
+					};
+				}
+				if (cmp > 0) {
+					// 本地比远端新（开发版）：绝不降级
+					if (notice) notice.hide();
+					notify(t("You are using a development version"));
+					return {
+						...resultBase,
+						status: "dev-version",
+						fromVersion: localVersion,
+					};
+				}
 			}
 
 			if (notice) notice.hide();
-			notice = new Notice(t("Downloading plugin files"), 0);
+			if (!silent) notice = new Notice(t("Downloading plugin files"), 0);
 
-			const pluginDir = `${app.vault.configDir}/plugins/${pluginId}`;
+			// 写入目录：已安装的用 Obsidian 记录的 dir（目录名可能不等于 id），
+			// 未安装的才按 id 新建
+			const pluginDir = PluginService.getPluginDir(
+				app,
+				installedId ?? pluginId,
+			);
 			const adapter = app.vault.adapter;
 			if (!(await adapter.exists(pluginDir))) {
 				await adapter.mkdir(pluginDir);
@@ -111,6 +169,17 @@ export class GiteeService {
 
 			if (notice) notice.hide();
 
+			// 命中原旧 id 时迁移 community-plugins.json（不改用户的启用状态）
+			const migrated = await PluginService.migrateLegacyPluginIdIfNeeded(
+				app,
+				{ remoteId: pluginId, legacyId, pluginDir },
+			);
+			if (migrated && !silent) {
+				new Notice(
+					`${t("Migrated plugin id")}: ${legacyId} → ${pluginId}`,
+				);
+			}
+
 			// 尝试重新加载插件
 			// @ts-ignore
 			const plugins = app.plugins;
@@ -122,7 +191,7 @@ export class GiteeService {
 							pluginId,
 						);
 
-						new Notice(
+						notify(
 							`${t("Plugin")} "${manifest.name}" ${t(
 								"installed/updated successfully",
 							)} & ${t("reloaded")}`,
@@ -133,24 +202,34 @@ export class GiteeService {
 						t("Automatic reload failed") + ":",
 						reloadErr,
 					);
-					new Notice(
+					notify(
 						`${t("Plugin")} "${manifest.name}" ${t(
 							"installed/updated successfully",
 						)}`,
 					);
-					new Notice(t("Plugin updated but reload failed"));
+					notify(t("Plugin updated but reload failed"));
 				}
 			} else {
-				new Notice(
+				notify(
 					`${t("Plugin")} "${manifest.name}" ${t(
 						"installed/updated successfully",
 					)}`,
 				);
 			}
+
+			return {
+				...resultBase,
+				status: "updated",
+				fromVersion: localVersion,
+			};
 		} catch (error) {
 			if (notice) notice.hide();
 			console.error(t("Failed to install plugin") + ":", error);
-			new Notice(t("Check console for details"));
+			notify(t("Check console for details"));
+			return {
+				status: "failed",
+				error: error?.message ?? String(error),
+			};
 		}
 	}
 
@@ -401,7 +480,7 @@ export class GiteeService {
 	): Promise<any> {
 		const url = `https://gitee.com/api/v5/repos/${owner}/${repo}/releases/latest`;
 		try {
-			const response = await requestUrl({
+			const response = await this.request({
 				url,
 				method: "GET",
 				headers: {
@@ -424,7 +503,7 @@ export class GiteeService {
 	): Promise<any[] | null> {
 		const url = `https://gitee.com/api/v5/repos/${owner}/${repo}/releases/${releaseId}/attach_files`;
 		try {
-			const response = await requestUrl({
+			const response = await this.request({
 				url,
 				method: "GET",
 				headers: {
@@ -459,7 +538,7 @@ export class GiteeService {
 				"No available download url for asset: " + asset?.name,
 			);
 		}
-		const response = await requestUrl({
+		const response = await this.request({
 			url,
 			method: "GET",
 		});
@@ -467,11 +546,39 @@ export class GiteeService {
 	}
 
 	/**
+	 * 带超时的 requestUrl：单请求超过 30s 直接判失败。
+	 *
+	 * 用 `Promise.race` + 定时器，结算后必须清掉定时器，
+	 * 否则 Node 单测进程会被挂起的 timer 拖住。
+	 */
+	private static async request(options: any): Promise<any> {
+		let timer: ReturnType<typeof setTimeout> | null = null;
+		const timeout = new Promise<never>((_resolve, reject) => {
+			timer = setTimeout(
+				() =>
+					reject(
+						new Error(
+							`Request timed out after ${
+								REQUEST_TIMEOUT_MS / 1000
+							}s: ${options?.url ?? ""}`,
+						),
+					),
+				REQUEST_TIMEOUT_MS,
+			);
+		});
+		try {
+			return await Promise.race([requestUrl(options), timeout]);
+		} finally {
+			if (timer) clearTimeout(timer);
+		}
+	}
+
+	/**
 	 * 直接下载文本文件内容（用于 fallback 到 raw URL）。
 	 */
 	private static async downloadRawText(url: string): Promise<string | null> {
 		try {
-			const response = await requestUrl({
+			const response = await this.request({
 				url,
 				method: "GET",
 			});

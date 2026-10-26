@@ -10,6 +10,7 @@ import IOTOUpdate from "../main";
 import { Utils } from "../utils";
 import { GithubService } from "../services/github-service";
 import { GiteeService } from "../services/gitee-service";
+import { PluginService } from "../services/plugin-service";
 import {
 	IOTO_PLUGINS,
 	IOTOPluginEntry,
@@ -93,8 +94,8 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 						button.setButtonText(t("Checking..."));
 						button.setDisabled(true);
 						const source =
-							this.plugin.settings.pluginDownloadSource ||
-							"github";
+							this.plugin.settings.pluginDownloadSource ??
+							"gitee";
 						const repoUrl =
 							source === "github"
 								? "https://github.com/shawndotty/ioto-update"
@@ -130,11 +131,26 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 							);
 							versionSetting.controlEl.empty();
 							versionSetting.addButton((b) => {
-								b.setButtonText(t("Start Update"))
+								b.setButtonText(
+									this.plugin.settings
+										.fullUpdateInOneClick
+										? t("One-Click Full Update")
+										: t("Start Update"),
+								)
 									.setCta()
 									.onClick(async () => {
 										b.setButtonText(t("Updating..."));
 										b.setDisabled(true);
+
+										// 开关开启：走完整链路（面板负责汇报与重载）
+										if (
+											this.plugin.settings
+												.fullUpdateInOneClick
+										) {
+											await this.plugin.commandService.startFullUpdate();
+											return;
+										}
+
 										try {
 											if (source === "github") {
 												await GithubService.installPluginFrom(
@@ -263,6 +279,20 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					}),
 			);
+
+		new Setting(containerEl)
+			.setName(t("Full Update In One Click"))
+			.setDesc(t("Full Update In One Click Description"))
+			.addToggle((toggle) =>
+				toggle
+					.setValue(
+						this.plugin.settings.fullUpdateInOneClick ?? false,
+					)
+					.onChange(async (value) => {
+						this.plugin.settings.fullUpdateInOneClick = value;
+						await this.plugin.saveSettings();
+					}),
+			);
 	}
 
 	private renderIOTOUpdatesSettings(containerEl: HTMLElement) {
@@ -291,7 +321,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 					.addOption("github", t("GitHub"))
 					.addOption("gitee", t("Gitee"))
 					.setValue(
-						this.plugin.settings.pluginDownloadSource || "github",
+						this.plugin.settings.pluginDownloadSource ?? "gitee",
 					)
 					.onChange(async (value) => {
 						this.plugin.settings.pluginDownloadSource =
@@ -302,7 +332,7 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl).setDesc(t("IOTO Plugins Center Description"));
 
-		const source = this.plugin.settings.pluginDownloadSource || "github";
+		const source = this.plugin.settings.pluginDownloadSource ?? "gitee";
 		const viewID =
 			this.plugin.settings.updateIDs.iotoSettingPlugin?.viewID;
 
@@ -339,7 +369,14 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			return { state: "error" };
 		}
 
-		const installed = this.app.plugins.manifests[manifest.id];
+		// 已安装判定要兼容旧 id（SlidesRup 改过 id），否则老用户会看到「安装」
+		const installedId = PluginService.resolveInstalledPluginId(
+			this.app,
+			manifest.id,
+		);
+		const installed = installedId
+			? this.app.plugins.manifests[installedId]
+			: undefined;
 		if (!installed) {
 			return {
 				state: "not-installed",

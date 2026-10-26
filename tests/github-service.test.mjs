@@ -257,3 +257,88 @@ test('installPluginFrom 对已是最新版本 / 非法地址给出提示且不�
 	await GithubService.installPluginFrom(app, 'https://example.com/foo');
 	assert.ok(notices.includes('Invalid GitHub repository URL'));
 });
+
+// ---------------------------------------------------------------------------
+// 返回值契约 / 静音 / 版本判定（与 Gitee 成对，逻辑必须一致）
+// ---------------------------------------------------------------------------
+
+function createInstalledApp({ manifests = {} } = {}) {
+	const writes = [];
+	const app = {
+		vault: {
+			configDir: '.obsidian',
+			adapter: {
+				async exists() {
+					return true;
+				},
+				async mkdir() {},
+				async write(path, content) {
+					writes.push({ path, content });
+				},
+			},
+		},
+		plugins: { manifests, enabledPlugins: new Set() },
+	};
+	return { app, writes };
+}
+
+test('installPluginFrom 返回 updated，并带上磁盘版本与远端版本', async () => {
+	useRequest((url) => {
+		if (url.endsWith('/manifest.json')) {
+			return textResponse(JSON.stringify(MANIFEST));
+		}
+		if (url.endsWith('/main.js')) return textResponse('console.log(5)');
+		throw new Error('404');
+	});
+	const { app } = createInstalledApp({
+		manifests: {
+			'ioto-dashboard': { id: 'ioto-dashboard', version: '1.0.0', dir: '.obsidian/plugins/ioto-dashboard' },
+		},
+	});
+
+	const result = await GithubService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+	});
+
+	assert.equal(result.status, 'updated');
+	assert.equal(result.fromVersion, '1.0.0');
+	assert.equal(result.toVersion, '1.2.3');
+	assert.equal(result.pluginId, 'ioto-dashboard');
+});
+
+test('本地版本高于远端时返回 dev-version 且不写文件', async () => {
+	useRequest(() => textResponse(JSON.stringify(MANIFEST)));
+	const { app, writes } = createInstalledApp({
+		manifests: {
+			'ioto-dashboard': { id: 'ioto-dashboard', version: '9.0.0', dir: '.obsidian/plugins/ioto-dashboard' },
+		},
+	});
+
+	const result = await GithubService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+	});
+
+	assert.equal(result.status, 'dev-version');
+	assert.deepEqual(writes, []);
+});
+
+test('silent 为真时不发任何 Notice', async () => {
+	useRequest((url) => {
+		if (url.endsWith('/manifest.json')) {
+			return textResponse(JSON.stringify(MANIFEST));
+		}
+		if (url.endsWith('/main.js')) return textResponse('console.log(6)');
+		throw new Error('404');
+	});
+	const { app } = createInstalledApp();
+	notices.length = 0;
+
+	await GithubService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+	});
+
+	assert.deepEqual(notices, []);
+});

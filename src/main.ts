@@ -12,7 +12,7 @@ export default class IOTOUpdate extends Plugin {
 	settingsManager: SettingsManager;
 	public apiService: ApiService;
 	private templaterService: TemplaterService;
-	private commandService: CommandService;
+	public commandService: CommandService;
 	private services: ServiceContainer;
 
 	async onload() {
@@ -32,7 +32,10 @@ export default class IOTOUpdate extends Plugin {
 		this.addSettingTab(new IOTOUpdateSettingTab(this.app, this));
 	}
 
-	onunload() {}
+	onunload() {
+		// 重载 / 卸载时移除悬浮进度面板，避免重载后残留一个空壳
+		this.commandService?.destroyProgressPanel();
+	}
 
 	async loadSettings() {
 		this.settings = await this.settingsManager.load();
