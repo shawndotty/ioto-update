@@ -293,6 +293,7 @@ Gitee 版本见 [gitee-service.ts](file:///Users/johnnylearns/Documents/Sync/IOT
 2. **构建**：`npm run build` 生成 `main.js`（压缩，无 sourcemap）+ `styles.css` 保持原样
 3. **发布**：`npm run build:deploy` 一键完成构建、打包（main.js / manifest.json / styles.css + ioto-update.zip）、打 tag，并发布到 GitHub 与 Gitee；GitHub 复用已登录的 `gh`，Gitee 需环境变量 `GITEE_TOKEN` 或本地 `.gitee-token` 文件。支持 `--dry-run` / `--github-only` / `--gitee-only` / `--force` / `--notes`。
 4. **自更新测试**：在 Obsidian 设置面板点击「Check for Updates」，会从当前 `pluginDownloadSource` 的 Release 下载比较 manifest.json 版本号，落后则自动更新并热加载
+5. **手机（Android）部署**：`npm run build:android`（= build + `scripts/deploy-android.mjs`）通过 adb 推送 main.js / manifest.json / styles.css 到手机库的插件目录（默认 `EvanIOTO`），逐文件比对 SHA-256，再用 WebView CDP（`adb forward` + `app.plugins` 的 disable/loadManifests/enable）重载并核对版本号；`--vault` / `--device` / `--no-reload` / `--force` 见 `--help`。**不覆盖 data.json**；手机锁屏时 CDP 连不上，脚本会提示解锁后重跑
 
 ---
 
