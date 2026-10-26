@@ -184,6 +184,7 @@ test('授权通过时注册 5 个数据源命令 + 一键部署 + 安装类命�
 			'install-airtable-fetcher-from-github',
 			'install-feishu-fetcher-from-github',
 			'install-vika-fetcher-from-github',
+			'install-sync-with-mdb-from-github',
 		],
 	);
 });

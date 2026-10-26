@@ -324,6 +324,14 @@ export class CommandService {
 					await this.installPluginByKey("obsidian-vika-fetcher");
 				},
 			});
+
+			this.addCommand({
+				id: "install-sync-with-mdb-from-github",
+				name: t("Install Sync with MDB") + t("PluginIndicator"),
+				callback: async () => {
+					await this.installPluginByKey("ob-sync-with-mdb");
+				},
+			});
 		}
 	}
 

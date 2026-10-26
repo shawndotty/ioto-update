@@ -103,6 +103,13 @@ export const IOTO_PLUGINS: IOTOPluginEntry[] = [
 		githubUrl: "https://github.com/shawndotty/obsidian-vika-fetcher",
 		giteeUrl: "https://gitee.com/johnnylearns/obsidian-vika-fetcher",
 	},
+	{
+		key: "ob-sync-with-mdb",
+		nameKey: "Sync with MDB",
+		descKey: "Sync with MDB.desc",
+		githubUrl: "https://github.com/shawndotty/ob-sync-with-mdb",
+		giteeUrl: "https://gitee.com/johnnylearns/ob-sync-with-mdb",
+	},
 ];
 
 /**

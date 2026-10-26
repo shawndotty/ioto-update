@@ -163,6 +163,7 @@ export default {
 	"Install Airtable Fetcher": "Install Airtable Fetcher",
 	"Install Feishu Fetcher": "Install Feishu Fetcher",
 	"Install Vika Fetcher": "Install Vika Fetcher",
+	"Install Sync with MDB": "Install Sync with MDB",
 	"Downloading manifest": "Downloading manifest...",
 	"Downloading plugin files": "Downloading plugin files...",
 	PluginIndicator: " (Plugin)",
@@ -231,4 +232,7 @@ export default {
 	"Vika Fetcher": "Vika Fetcher",
 	"Vika Fetcher.desc":
 		"Fetch and embed Vika (维格表) records into your notes.",
+	"Sync with MDB": "Sync with MDB",
+	"Sync with MDB.desc":
+		"Sync your notes with Airtable, Vika, Feishu, DingDing AI Table, WPS, NocoDB and Baserow.",
 };

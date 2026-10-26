@@ -148,6 +148,7 @@ export default {
 	"Install Airtable Fetcher": "安装Airtable Fetcher",
 	"Install Feishu Fetcher": "安装Feishu Fetcher",
 	"Install Vika Fetcher": "安装Vika Fetcher",
+	"Install Sync with MDB": "安装Sync with MDB",
 	"Downloading manifest": "正在下载清单文件...",
 	"Downloading plugin files": "正在下载插件文件...",
 	PluginIndicator: " (插件)",
@@ -204,4 +205,7 @@ export default {
 	"Feishu Fetcher.desc": "抓取飞书 / Lark 文档与数据并嵌入到你的笔记中。",
 	"Vika Fetcher": "Vika Fetcher",
 	"Vika Fetcher.desc": "抓取维格表记录并嵌入到你的笔记中。",
+	"Sync with MDB": "Sync with MDB",
+	"Sync with MDB.desc":
+		"与 Airtable、维格表、飞书、钉钉 AI 表格、WPS、NocoDB、Baserow 双向同步数据。",
 };
