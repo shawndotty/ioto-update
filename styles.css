@@ -190,3 +190,24 @@ input.invalid-input {
 	justify-content: flex-end;
 	color: var(--text-muted);
 }
+
+/* 手机端：桌面那条定宽 340px + right 24px 在 354px 视口里会左溢出约 10px；
+   改为「避开安全区、左右各留 12px」的全宽卡片，横屏用 max-width 收成居中卡片 */
+body.is-phone .ioto-full-update-panel {
+	top: calc(var(--safe-area-inset-top, 0px) + 8px);
+	left: 12px;
+	right: 12px;
+	width: auto;
+	max-width: 520px;
+	margin-inline: auto;
+	max-height: min(
+		70vh,
+		calc(100vh - var(--safe-area-inset-top, 0px) - var(--navbar-height, 80px) - 16px)
+	);
+}
+
+/* 触屏点按：关闭图标只有 32×28，撑到 36×36（在标题栏里纵向居中，不改外框位置） */
+body.is-phone .ioto-fu-close {
+	min-width: 36px;
+	min-height: 36px;
+}
