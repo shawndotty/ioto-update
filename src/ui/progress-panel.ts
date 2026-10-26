@@ -61,6 +61,10 @@ export class FullUpdateProgressPanel {
 	private footerEl: HTMLElement;
 	private auxRowEls: HTMLElement[] = [];
 	private total = 0;
+	/** 最近一次已知的累计完成单位数：`stage-start` 续上它，而不是从 0 重来 */
+	private done = 0;
+	/** 进度条当前值（单位同 done，允许小数：框架阶段的表内进度） */
+	private barValue = 0;
 	private reloadTimer: number | null = null;
 	private countdownTimer: number | null = null;
 	private destroyed = false;
@@ -108,19 +112,24 @@ export class FullUpdateProgressPanel {
 			case "stage-start":
 				this.total = event.total;
 				this.setCurrent(t(STAGE_LABEL_KEYS[event.stage]));
-				this.updateCounter(0);
+				// 计数器只增不减：新阶段续上已完成的单位，否则 n 会被打回 0
+				this.updateCounter(this.done);
 				break;
 
 			case "framework-progress":
+				// 框架阶段是一张「单位」里的表内进度：只喂进度条，不改 n/total 文字
 				if (event.total > 0) {
 					this.setCurrent(
 						`${t("Updating Framework")} ${event.done}/${event.total}`,
 					);
+					this.setBarOnly(this.done + event.done / event.total);
 				}
 				break;
 
 			case "plugin-progress":
 				this.setCurrent(pluginName(event.key));
+				// 事件自带的 done 是「本插件开始前」的累计值，直接上屏
+				this.updateCounter(event.done);
 				this.auxRowEls[event.index] = this.appendRow(
 					pluginName(event.key),
 					t("Updating..."),
@@ -259,9 +268,17 @@ export class FullUpdateProgressPanel {
 	}
 
 	private updateCounter(done: number) {
+		this.done = done;
 		this.counterEl.setText(`${done}/${this.total}`);
+		this.setBarOnly(done);
+	}
+
+	/** 只推进进度条；值取历史最大值，保证宽度不回退。 */
+	private setBarOnly(value: number) {
+		if (value <= this.barValue) return;
+		this.barValue = value;
 		const percent =
-			this.total > 0 ? Math.round((done / this.total) * 100) : 0;
+			this.total > 0 ? Math.round((value / this.total) * 100) : 0;
 		this.barFillEl.style.width = `${percent}%`;
 	}
 }

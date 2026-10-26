@@ -231,6 +231,29 @@ test('进度事件：每个辅助插件都发 plugin-progress，最后发 finish
 	assert.equal(events[0].total, 14);
 });
 
+test('阶段边界的 stage-end.done 单调递增且覆盖全部单位（面板续值依赖它）', async () => {
+	const { deps, events } = createDeps();
+	const summary = await runFullUpdate(deps);
+
+	const stageEnds = events.filter((event) => event.type === 'stage-end');
+	assert.deepEqual(
+		stageEnds.map((event) => event.stage),
+		['framework', 'setting-plugin', 'aux-plugins', 'self'],
+	);
+	assert.deepEqual(
+		stageEnds.map((event) => event.done),
+		[1, 2, 13, 14],
+		'框架 1 + Setting 1 + 11 个辅助插件 + 自身',
+	);
+	for (let index = 1; index < stageEnds.length; index++) {
+		assert.ok(
+			stageEnds[index].done > stageEnds[index - 1].done,
+			`stage-end.done 必须单调递增，实际: ${stageEnds.map((event) => event.done).join(',')}`,
+		);
+	}
+	assert.equal(stageEnds.at(-1).done, summary.total);
+});
+
 test('面板抛错不影响更新链路', async () => {
 	const { deps, calls } = createDeps({
 		onEvent() {
