@@ -796,3 +796,116 @@ test('一键更新完整 IOTO 在框架失败时仍跑完辅助插件，且不�
 	assert.deepEqual(app.plugins.enabledPlugins, new Set(), '失败时不该启用 ioto-settings');
 	assert.deepEqual(enabled, []);
 });
+
+// ---------------------------------------------------------------------------
+// quiet 门控：全量链路静音，原有更新方式不受影响（Plan-20261026-102044）
+// ---------------------------------------------------------------------------
+
+/** 单测没有 DOM：用事件收集器替掉真实面板，同时能读到阶段结果。 */
+function stubPanel(service) {
+	const events = [];
+	service.createProgressPanel = () => ({
+		handle: (event) => events.push(event),
+		requestReload: () => {},
+		destroy: () => {},
+	});
+	return events;
+}
+
+test('一键更新完整 IOTO 全程静音：跳过提示与逐表提示都不再弹出', async () => {
+	const { service, commands } = createService(
+		{ skipMyIotoInAllUpdates: true, myIotoDeployed: true },
+		{ manifests: ALL_MANIFESTS },
+	);
+	service.registerCommands();
+	const events = stubPanel(service);
+	service.executeNocoDBCommand = async () => {};
+
+	const stub = stubInstall(async () => ({ status: 'up-to-date' }));
+	notices.length = 0;
+	try {
+		await commands.find((command) => command.id === 'full-update-ioto').callback();
+	} finally {
+		stub.restore();
+	}
+
+	assert.deepEqual(notices, [], `全量链路不该有任何 Notice，实际: ${notices.join(' | ')}`);
+
+	// 静音后「已跳过」只能靠面板：框架阶段结果里要补一行 skipped
+	const frameworkEnd = events.find(
+		(event) => event.type === 'stage-end' && event.stage === 'framework',
+	);
+	assert.deepEqual(
+		frameworkEnd.result.items.map((item) => [item.label, item.status]),
+		[
+			['Update Core Files', 'updated'],
+			['Update Help Docs', 'updated'],
+			['Update MYIOTO Templates', 'skipped'],
+			['Update CSS Snippets', 'updated'],
+		],
+		'跳过的 MyIOTO 要按原顺序补一行 skipped',
+	);
+});
+
+test('一键更新完整 IOTO 失败也静音：失败原因只走阶段结果', async () => {
+	const { service, commands } = createService({}, {
+		manifests: ALL_MANIFESTS,
+	});
+	service.registerCommands();
+	const events = stubPanel(service);
+	service.executeNocoDBCommand = async () => {
+		throw new Error('boom');
+	};
+
+	const stub = stubInstall(async () => ({ status: 'up-to-date' }));
+	notices.length = 0;
+	try {
+		await commands.find((command) => command.id === 'full-update-ioto').callback();
+	} finally {
+		stub.restore();
+	}
+
+	assert.deepEqual(notices, [], `失败也不该弹 Notice，实际: ${notices.join(' | ')}`);
+	const frameworkEnd = events.find(
+		(event) => event.type === 'stage-end' && event.stage === 'framework',
+	);
+	assert.equal(frameworkEnd.result.status, 'failed');
+	assert.ok(
+		frameworkEnd.result.items.every(
+			(item) => item.status === 'failed' && item.detail === 'boom',
+		),
+		'失败原因要随阶段结果交给面板',
+	);
+});
+
+test('旧「一键部署」仍逐表提示开始与完成（quiet 缺省 false）', async () => {
+	const { service, commands } = createService();
+	service.registerCommands();
+	service.executeNocoDBCommand = async () => {};
+
+	notices.length = 0;
+	await commands.find((command) => command.id === 'run-all-updates').callback();
+
+	const executed = notices.filter((notice) => notice.startsWith('Executing '));
+	const finished = notices
+		.filter((notice) => notice.endsWith(' completed'))
+		.sort();
+	assert.deepEqual(executed, [
+		'Executing Update Core Files...',
+		'Executing Update Help Docs...',
+		'Executing Update MYIOTO Templates...',
+		'Executing Update CSS Snippets...',
+		'Executing Update IOTO Framwork Setting Plugin...',
+	]);
+	assert.deepEqual(
+		finished,
+		[
+			'Update Core Files completed',
+			'Update Help Docs completed',
+			'Update MYIOTO Templates completed',
+			'Update CSS Snippets completed',
+			'Update IOTO Framwork Setting Plugin completed',
+		].sort(),
+		'逐表「完成」提示必须照旧，只比较集合（并行完成的先后不稳定）',
+	);
+});

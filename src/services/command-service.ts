@@ -506,8 +506,20 @@ export class CommandService {
 	 */
 	private async runFrameworkUpdate(
 		commandConfigs: CommandConfig[],
-		onProgress?: (done: number, total: number) => void,
+		options: {
+			/**
+			 * 编排链路统一静音：状态由进度面板汇报，不再逐表弹 Notice。
+			 * 缺省 `false`，即「原有更新方式」的提示照旧。
+			 */
+			quiet?: boolean;
+			onProgress?: (done: number, total: number) => void;
+		} = {},
 	): Promise<StageResult> {
+		const { quiet = false, onProgress } = options;
+		const notify = (message: string) => {
+			if (!quiet) new Notice(message);
+		};
+
 		const skipRequested =
 			this.plugin.settings.skipMyIotoInAllUpdates === true;
 		const deployed = this.plugin.settings.myIotoDeployed;
@@ -543,9 +555,9 @@ export class CommandService {
 			}));
 
 		if (skipMyIoto) {
-			new Notice(t("MYIOTO Skipped By Setting"));
+			notify(t("MYIOTO Skipped By Setting"));
 		} else if (forceInitialDownload) {
-			new Notice(t("MYIOTO Initial Download Ignores Skip"));
+			notify(t("MYIOTO Initial Download Ignores Skip"));
 		}
 
 		const items: StageItem[] = [];
@@ -566,7 +578,7 @@ export class CommandService {
 			const updatePromises = updateTasks.map((task) => {
 				return (async () => {
 					try {
-						new Notice(`${t("Executing")} ${task.name}...`);
+						notify(`${t("Executing")} ${task.name}...`);
 						// 优化写法，直接通过对象映射判断是否需要设置 intialSetup
 						const needInitialSetupIds = new Set([
 							"get-myioto",
@@ -581,8 +593,8 @@ export class CommandService {
 							this.settings.updateAPIKey,
 							false,
 							{
-								// 编排链路一律静音：进度由面板汇报，不再逐表弹 Notice
-								quiet: onProgress !== undefined,
+								// 静音由调用方决定（全量链路 true），进度始终回传面板
+								quiet,
 								onProgress: (done, total) => {
 									fileDoneByTable.set(task.id, done);
 									fileTotalByTable.set(task.id, total);
@@ -599,7 +611,7 @@ export class CommandService {
 							await this.plugin.saveSettings();
 						}
 
-						new Notice(`${task.name} ${t("completed")}`);
+						notify(`${task.name} ${t("completed")}`);
 						return {
 							status: "fulfilled",
 							name: task.name,
@@ -612,7 +624,7 @@ export class CommandService {
 							this.plugin.settings.myIotoDeployed = false;
 							await this.plugin.saveSettings();
 						}
-						new Notice(
+						notify(
 							`${task.name} ${t("failed")}: ${
 								error.message
 							}`,
@@ -659,13 +671,33 @@ export class CommandService {
 			});
 		});
 
+		// 静音后「已跳过」只剩面板这一条通路：按原配置顺序插回本位。
+		if (skipMyIoto) {
+			const orderedConfigs = commandConfigs.filter(
+				(config) => config.isPartOfAllUpdates,
+			);
+			const skipIndex = orderedConfigs.findIndex(
+				(config) => config.id === "get-myioto",
+			);
+			if (skipIndex >= 0) {
+				items.splice(skipIndex, 0, {
+					label: orderedConfigs[skipIndex].name,
+					status: "skipped",
+				});
+			}
+		}
+
 		const failedCount = items.filter(
 			(item) => item.status === "failed",
 		).length;
+		// 跳过行不算「跑过一张表」：否则其余表全失败时会从 failed 降级成 partial
+		const countedCount = items.filter(
+			(item) => item.status !== "skipped",
+		).length;
 		const status: StageResult["status"] =
-			items.length > 0 && failedCount === 0
+			countedCount > 0 && failedCount === 0
 				? "done"
-				: failedCount === items.length
+				: failedCount === countedCount
 				? "failed"
 				: "partial";
 
@@ -841,7 +873,10 @@ export class CommandService {
 		await runFullUpdate({
 			auxPluginKeys: IOTO_PLUGINS.map((entry) => entry.key),
 			runFrameworkStage: (onProgress) =>
-				this.runFrameworkUpdate(frameworkConfigs, onProgress),
+				this.runFrameworkUpdate(frameworkConfigs, {
+					quiet: true,
+					onProgress,
+				}),
 			updateSettingPlugin: ({ frameworkFailed }) =>
 				this.updateSettingPluginStage(frameworkFailed),
 			updateAuxPlugin: (key) => this.updateAuxPluginByKey(key),
