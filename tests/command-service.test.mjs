@@ -132,10 +132,26 @@ function createService(settingsOverrides = {}, options = {}) {
 	// 一键部署会顺带装两个核心插件；安装边界统一 stub，断言的是编排本身。
 	// 安装命令用例（install-*）走真实下载分派，用返回的 originalInstallPluginByKey 恢复。
 	const installedKeys = [];
+	const installedOptions = [];
 	const originalInstallPluginByKey = service.installPluginByKey;
-	service.installPluginByKey = async (key) => {
+	service.installPluginByKey = async (key, options) => {
 		installedKeys.push(key);
+		installedOptions.push(options);
+		// 静音编排要读 result.status；失败用例自行覆写这个 stub。
+		return { status: 'up-to-date', pluginId: key };
 	};
+	// 测试环境没有 DOM：用轻量面板替身接住事件；requestReload 立即执行真实回调，
+	// 让既有的 reloads 断言仍指向「是否请求过重载」这一语义。
+	const panelEvents = [];
+	const reloadRequests = [];
+	service.createProgressPanel = () => ({
+		handle: (event) => panelEvents.push(event),
+		requestReload: (onReload) => {
+			reloadRequests.push(onReload);
+			onReload();
+		},
+		destroy: () => {},
+	});
 	return {
 		service,
 		commands,
@@ -146,8 +162,19 @@ function createService(settingsOverrides = {}, options = {}) {
 		saves,
 		templaterCalls,
 		installedKeys,
+		installedOptions,
 		originalInstallPluginByKey,
+		panelEvents,
+		reloadRequests,
 	};
+}
+
+/** 取框架阶段的明细行（静音后 skipped / failed 只能从这里读到）。 */
+function frameworkItems(events) {
+	const end = events.find(
+		(event) => event.type === 'stage-end' && event.stage === 'framework',
+	);
+	return end?.result.items ?? [];
 }
 
 test('授权信息不完整时一条命令都不注册', () => {
@@ -284,6 +311,7 @@ test('单个核心插件安装失败被隔离，另一个仍被尝试且不影�
 	service.installPluginByKey = async (key) => {
 		installedKeys.push(key);
 		if (key === 'ioto-tasks-center') throw new Error('boom');
+		return { status: 'up-to-date', pluginId: key };
 	};
 
 	const originalError = console.error;
@@ -303,8 +331,8 @@ test('单个核心插件安装失败被隔离，另一个仍被尝试且不影�
 	assert.deepEqual(reloads, ['app:reload'], '安装失败不影响末尾 app:reload');
 });
 
-test('开启跳过设置且已部署过，一键部署只跑其余 4 个数据源并给出跳过提示', async () => {
-	const { service, commands, enabled, reloads } = createService({
+test('开启跳过设置且已部署过，一键部署只跑其余 4 个数据源并在面板标记跳过', async () => {
+	const { service, commands, enabled, reloads, panelEvents } = createService({
 		skipMyIotoInAllUpdates: true,
 		myIotoDeployed: true,
 	});
@@ -322,9 +350,17 @@ test('开启跳过设置且已部署过，一键部署只跑其余 4 个数据�
 		calls.map((config) => config.viewID),
 		['viwCore', 'viwHelp', 'viwCss', 'viwSetting'],
 	);
-	assert.ok(
-		notices.includes('MYIOTO update skipped per settings.'),
-		`缺少跳过提示，实际: ${notices.join(' | ')}`,
+	assert.deepEqual(notices, [], '部署全程静音');
+	assert.deepEqual(
+		frameworkItems(panelEvents).map((item) => [item.label, item.status]),
+		[
+			['Update Core Files', 'updated'],
+			['Update Help Docs', 'updated'],
+			['Update MYIOTO Templates', 'skipped'],
+			['Update CSS Snippets', 'updated'],
+			['Update IOTO Framwork Setting Plugin', 'updated'],
+		],
+		'静音后「已跳过」由面板明细呈现',
 	);
 	assert.deepEqual(enabled, ['ioto-settings']);
 	assert.deepEqual(reloads, ['app:reload']);
@@ -492,15 +528,14 @@ test('首次部署时 skip 设置不生效，强制下载并写回 true', async 
 		'viwCss',
 		'viwSetting',
 	]);
+	assert.deepEqual(notices, [], '部署全程静音');
 	assert.ok(
-		notices.includes(
-			'First deploy always downloads MYIOTO content; the skip setting applies from the next one-click deploy.',
+		frameworkItems(run.panelEvents).some(
+			(item) =>
+				item.label === 'Update MYIOTO Templates' &&
+				item.status === 'updated',
 		),
-		`缺少首次下载提示，实际: ${notices.join(' | ')}`,
-	);
-	assert.ok(
-		!notices.includes('MYIOTO update skipped per settings.'),
-		'首次部署不应提示已跳过',
+		'首次部署强制下载 MYIOTO，面板明细应为已更新而非已跳过',
 	);
 	assert.deepEqual(run.saves, [true]);
 	assert.equal(run.plugin.settings.myIotoDeployed, true);
@@ -528,9 +563,14 @@ test('老用户本地已有 MyIOTO 内容时跳过并一次性迁移标记', asy
 		.callback();
 
 	assert.deepEqual(calls, ['viwCore', 'viwHelp', 'viwCss', 'viwSetting']);
+	assert.deepEqual(notices, [], '部署全程静音');
 	assert.ok(
-		notices.includes('MYIOTO update skipped per settings.'),
-		`缺少跳过提示，实际: ${notices.join(' | ')}`,
+		frameworkItems(run.panelEvents).some(
+			(item) =>
+				item.label === 'Update MYIOTO Templates' &&
+				item.status === 'skipped',
+		),
+		'静音后「已跳过」由面板明细呈现',
 	);
 	assert.deepEqual(run.saves, [true], '老用户只做一次性迁移写回');
 	assert.equal(run.plugin.settings.myIotoDeployed, true);
@@ -561,10 +601,14 @@ test('标记为 false 时即使本地有内容也强制下载（半途失败可�
 		calls.includes('viwMy'),
 		`标记为 false 时应强制下载，实际: ${calls.join(',')}`,
 	);
+	assert.deepEqual(notices, [], '部署全程静音');
 	assert.ok(
-		notices.includes(
-			'First deploy always downloads MYIOTO content; the skip setting applies from the next one-click deploy.',
+		frameworkItems(run.panelEvents).some(
+			(item) =>
+				item.label === 'Update MYIOTO Templates' &&
+				item.status === 'updated',
 		),
+		'强制下载成功后面板明细应为已更新',
 	);
 });
 
@@ -613,14 +657,20 @@ test('强制下载失败时标记写回 false，其余任务照常跑完', async
 	]);
 	assert.equal(run.plugin.settings.myIotoDeployed, false);
 	assert.deepEqual(run.saves, [false]);
+	assert.deepEqual(notices, [], '部署全程静音');
 	assert.ok(
-		notices.includes('Update MYIOTO Templates failed: boom'),
-		`缺少失败提示，实际: ${notices.join(' | ')}`,
+		frameworkItems(run.panelEvents).some(
+			(item) =>
+				item.label === 'Update MYIOTO Templates' &&
+				item.status === 'failed' &&
+				item.detail === 'boom',
+		),
+		'失败原因由面板明细呈现',
 	);
 });
 
-test('一键部署单个数据源失败时给出失败提示且继续跑完其余任务', async () => {
-	const { service, commands } = createService();
+test('一键部署单个数据源失败时在面板给出明细且继续跑完其余任务', async () => {
+	const { service, commands, panelEvents } = createService();
 	service.registerCommands();
 
 	const attempted = [];
@@ -641,9 +691,15 @@ test('一键部署单个数据源失败时给出失败提示且继续跑完其�
 		'viwCss',
 		'viwSetting',
 	]);
+	assert.deepEqual(notices, [], '部署全程静音');
 	assert.ok(
-		notices.includes('Update CSS Snippets failed: boom'),
-		`缺少失败提示，实际: ${notices.join(' | ')}`,
+		frameworkItems(panelEvents).some(
+			(item) =>
+				item.label === 'Update CSS Snippets' &&
+				item.status === 'failed' &&
+				item.detail === 'boom',
+		),
+		'失败原因由面板明细呈现',
 	);
 });
 
@@ -940,34 +996,130 @@ test('一键更新完整 IOTO 失败也静音：失败原因只走阶段结果',
 	);
 });
 
-test('旧「一键部署」仍逐表提示开始与完成（quiet 缺省 false）', async () => {
-	const { service, commands } = createService();
+test('一键部署全程静音 + 事件齐全（与完整更新同款面板）', async () => {
+	const {
+		service,
+		commands,
+		reloads,
+		reloadRequests,
+		panelEvents,
+		installedKeys,
+		installedOptions,
+	} = createService();
 	service.registerCommands();
-	service.executeNocoDBCommand = async () => {};
+	service.executeNocoDBCommand = async (...args) => {
+		// 触发文件级进度回调，验证 framework-progress 也进面板
+		const options = args[args.length - 1];
+		options?.onProgress?.(1, 1);
+	};
 
 	notices.length = 0;
 	await commands.find((command) => command.id === 'run-all-updates').callback();
 
-	const executed = notices.filter((notice) => notice.startsWith('Executing '));
-	const finished = notices
-		.filter((notice) => notice.endsWith(' completed'))
-		.sort();
-	assert.deepEqual(executed, [
-		'Executing Update Core Files...',
-		'Executing Update Help Docs...',
-		'Executing Update MYIOTO Templates...',
-		'Executing Update CSS Snippets...',
-		'Executing Update IOTO Framwork Setting Plugin...',
-	]);
+	assert.deepEqual(notices, [], `部署不该有任何 Notice，实际: ${notices.join(' | ')}`);
+	assert.deepEqual(installedKeys, ['ioto-tasks-center', 'ioto-dashboard']);
 	assert.deepEqual(
-		finished,
-		[
-			'Update Core Files completed',
-			'Update Help Docs completed',
-			'Update MYIOTO Templates completed',
-			'Update CSS Snippets completed',
-			'Update IOTO Framwork Setting Plugin completed',
-		].sort(),
-		'逐表「完成」提示必须照旧，只比较集合（并行完成的先后不稳定）',
+		installedOptions,
+		[{ silent: true }, { silent: true }],
+		'部署安装只静音，不能传 autoReload:false（新装插件需要它来启用）',
 	);
+	assert.deepEqual(
+		panelEvents.map((event) => event.type),
+		[
+			'stage-start',
+			...Array(5).fill('framework-progress'),
+			'stage-end',
+			'stage-start',
+			'plugin-progress',
+			'plugin-progress',
+			'stage-end',
+			'finished',
+		],
+	);
+	assert.deepEqual(
+		panelEvents
+			.filter((event) => event.type === 'stage-end')
+			.map((event) => event.done),
+		[1, 3],
+	);
+	const finished = panelEvents.find((event) => event.type === 'finished');
+	assert.equal(finished.summary.total, 3);
+	assert.equal(finished.summary.done, 3);
+	assert.equal(reloadRequests.length, 1, '面板只请求一次重载');
+	assert.deepEqual(reloads, ['app:reload']);
+});
+
+test('一键部署面板标题为「部署进度」，完整更新仍用默认标题', async () => {
+	const { service, commands } = createService({}, { manifests: ALL_MANIFESTS });
+	service.registerCommands();
+	const titles = [];
+	const baseCreate = service.createProgressPanel;
+	service.createProgressPanel = (title) => {
+		titles.push(title);
+		return baseCreate(title);
+	};
+	service.executeNocoDBCommand = async () => {};
+
+	const stub = stubInstall(async () => ({ status: 'up-to-date' }));
+	try {
+		await commands.find((command) => command.id === 'run-all-updates').callback();
+		await commands.find((command) => command.id === 'full-update-ioto').callback();
+	} finally {
+		stub.restore();
+	}
+	assert.deepEqual(titles, ['Deploy Progress', undefined]);
+});
+
+test('必备插件安装失败不中断，失败原因进面板明细且不再 console.error', async () => {
+	const { service, commands, panelEvents, reloadRequests } = createService();
+	service.registerCommands();
+	service.executeNocoDBCommand = async () => {};
+	service.installPluginByKey = async (key) => {
+		if (key === 'ioto-tasks-center') {
+			return { status: 'failed', error: 'boom' };
+		}
+		return { status: 'up-to-date', pluginId: key };
+	};
+
+	const originalError = console.error;
+	const errors = [];
+	console.error = (...args) => errors.push(args);
+	try {
+		await commands.find((command) => command.id === 'run-all-updates').callback();
+	} finally {
+		console.error = originalError;
+	}
+
+	const pluginEnd = panelEvents.find(
+		(event) => event.type === 'stage-end' && event.stage === 'essential-plugins',
+	);
+	assert.deepEqual(pluginEnd.result.items, [
+		{ label: 'IOTO Tasks Center', status: 'failed', detail: 'boom' },
+		{ label: 'IOTO Dashboard', status: 'up-to-date', detail: undefined },
+	], '第二个插件仍被尝试，失败原因进明细');
+	assert.deepEqual(errors, [], '失败由面板呈现，不再 console.error');
+	assert.equal(reloadRequests.length, 1, '插件失败不影响末尾重载');
+});
+
+test('框架同步失败时不请求重载，但 finished 事件与 1/3 进度仍发出', async () => {
+	const { service, commands, enabled, reloadRequests, panelEvents } =
+		createService();
+	service.registerCommands();
+	service.executeNocoDBCommand = async () => {
+		throw new Error('framework down');
+	};
+
+	await commands.find((command) => command.id === 'run-all-updates').callback();
+
+	assert.equal(reloadRequests.length, 0, '框架失败让用户看面板明细自行处理');
+	assert.deepEqual(enabled, []);
+	assert.deepEqual(
+		panelEvents
+			.filter((event) => event.type === 'stage-end')
+			.map((event) => event.done),
+		[1, 3],
+	);
+	const finished = panelEvents.find((event) => event.type === 'finished');
+	assert.ok(finished, 'finished 事件仍发出');
+	assert.ok(finished.summary.failed >= 5, '框架失败计入 summary.failed');
 });

@@ -26,6 +26,7 @@ const STAGE_LABEL_KEYS: Record<FullUpdateStageName, keyof typeof en> = {
 	"setting-plugin": "Updating Framework Setting Plugin",
 	"aux-plugins": "Updating Auxiliary Plugins",
 	self: "Updating IOTO Update",
+	"essential-plugins": "Installing Essential Plugins",
 };
 
 function pluginName(key: string): string {
@@ -69,7 +70,7 @@ export class FullUpdateProgressPanel {
 	private countdownTimer: number | null = null;
 	private destroyed = false;
 
-	constructor() {
+	constructor(progressTitle: string = t("Full Update Progress")) {
 		this.containerEl = document.body.createDiv({
 			cls: "ioto-full-update-panel",
 		});
@@ -79,7 +80,7 @@ export class FullUpdateProgressPanel {
 		});
 		headerEl.createSpan({
 			cls: "ioto-fu-title",
-			text: t("Full Update Progress"),
+			text: progressTitle,
 		});
 		const closeEl = headerEl.createEl("button", {
 			cls: "clickable-icon ioto-fu-close",
@@ -204,7 +205,7 @@ export class FullUpdateProgressPanel {
 		result: StageResult,
 		done: number,
 	) {
-		if (stage === "aux-plugins") {
+		if (stage === "aux-plugins" || stage === "essential-plugins") {
 			result.items.forEach((item, index) => {
 				const rowEl = this.auxRowEls[index];
 				const text = `${item.label} — ${this.itemText(

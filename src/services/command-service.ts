@@ -19,6 +19,7 @@ import { AIPlatformSuggester } from "../suggesters/ai-platform-suggester";
 import { IOTO_PLUGINS, IOTOPluginEntry, isSSGViewIDAllowed } from "./plugin-registry";
 import {
 	runFullUpdate,
+	FullUpdateEvent,
 	StageItem,
 	StageResult,
 } from "./full-update-service";
@@ -484,17 +485,7 @@ export class CommandService {
 			id: "run-all-updates",
 			name: t("Deploy IOTO With One Click"),
 			callback: async () => {
-				const result = await this.runFrameworkUpdate(commandConfigs);
-				// 一键部署顺带装好两个最常用插件；单个失败被内部 catch 隔离。
-				await this.installEssentialPlugins();
-				// 只有全部表都成功才启用 ioto-settings（文件没下全，启用无意义）；
-				// 但只要写过文件就重载，让 CSS / 框架文件的改动生效。
-				if (result.status === "done") {
-					await this.enableIotoSettingsPlugin();
-				}
-				if (result.status !== "failed") {
-					this.app.commands.executeCommandById("app:reload");
-				}
+				await this.startDeploy(commandConfigs);
 			},
 		});
 	}
@@ -728,25 +719,45 @@ export class CommandService {
 	/**
 	 * 根据插件注册表中的 key 安装对应的 IOTO 辅助插件。
 	 * 下载源由 settings.pluginDownloadSource 决定（github / gitee）。
+	 *
+	 * 缺省参数保持独立安装命令的旧行为（有 Notice、装完自动重载）；
+	 * 编排链路传入 `{ silent: true }` 后完全静音，结果由返回值上报面板。
 	 */
-	private async installPluginByKey(key: string): Promise<void> {
+	private async installPluginByKey(
+		key: string,
+		options: { silent?: boolean; autoReload?: boolean } = {},
+	): Promise<InstallPluginResult> {
 		const entry = IOTO_PLUGINS.find((p) => p.key === key);
 		if (!entry) {
-			new Notice(`Unknown plugin: ${key}`);
-			return;
+			// 静音契约：未知 key 也不弹 Notice，改由返回值上报
+			return { status: "not-found", pluginId: key, error: "unknown-key" };
 		}
-		await this.installEntry(entry);
+		return this.installEntry(entry, options);
 	}
 
-	/** 一键部署时补齐两个最常用插件：未安装则装并启用，已安装则幂等升级。 */
-	private async installEssentialPlugins(): Promise<void> {
+	/**
+	 * 一键部署时补齐两个最常用插件：未安装则装并启用，已安装则幂等升级。
+	 *
+	 * 顺序固定，单个失败被隔离但不吞掉——结果交给 `startDeploy` 逐条上报面板。
+	 */
+	private async installEssentialPlugins(): Promise<
+		Array<{ key: string; result: InstallPluginResult }>
+	> {
+		const results: Array<{ key: string; result: InstallPluginResult }> = [];
 		for (const key of ["ioto-tasks-center", "ioto-dashboard"]) {
+			let result: InstallPluginResult;
 			try {
-				await this.installPluginByKey(key);
+				result = await this.installPluginByKey(key, { silent: true });
 			} catch (e) {
-				console.error(`Failed to install ${key}`, e);
+				result = {
+					status: "failed",
+					pluginId: key,
+					error: e instanceof Error ? e.message : String(e),
+				};
 			}
+			results.push({ key, result });
 		}
+		return results;
 	}
 
 	/** 按下载源把一条注册项交给 GitHub / Gitee 服务。 */
@@ -857,8 +868,8 @@ export class CommandService {
 	/**
 	 * 进度面板工厂。单测里覆写成 `() => null` 即可完全脱离 DOM。
 	 */
-	createProgressPanel(): FullUpdateProgressPanel | null {
-		return new FullUpdateProgressPanel();
+	createProgressPanel(title?: string): FullUpdateProgressPanel | null {
+		return new FullUpdateProgressPanel(title);
 	}
 
 	destroyProgressPanel() {
@@ -905,5 +916,108 @@ export class CommandService {
 			},
 			onEvent: (event) => panel?.handle(event),
 		});
+	}
+
+	/**
+	 * 一键部署：框架同步 + 两个必备插件安装。
+	 *
+	 * 与 `startFullUpdate()` 共用同一块进度面板与事件契约，但走独立的轻量编排：
+	 * 部署实际做的事不变（框架 5 表 + 装 2 插件 + 启用 ioto-settings + 重载一次），
+	 * 只是把所有提示从 Notice 换成面板事件。阶段之间串行、阶段内失败不中断。
+	 */
+	async startDeploy(commandConfigs: CommandConfig[]): Promise<void> {
+		this.destroyProgressPanel();
+		const panel = this.createProgressPanel(t("Deploy Progress"));
+		this.progressPanel = panel;
+		const total = 3; // 1 个框架阶段 + 2 个必备插件
+		const emit = (event: FullUpdateEvent) => panel?.handle(event);
+
+		// 阶段 1：框架。quiet 让逐表 Notice 全部静音；文件级细分只喂进度条。
+		emit({ type: "stage-start", stage: "framework", total });
+		const framework = await this.runFrameworkUpdate(commandConfigs, {
+			quiet: true,
+			onProgress: (done, all) =>
+				emit({ type: "framework-progress", done, total: all }),
+		});
+		emit({
+			type: "stage-end",
+			stage: "framework",
+			done: 1,
+			result: framework,
+		});
+
+		// 阶段 2：两个必备插件，逐个算进度单位；失败不中断且原因进面板明细。
+		let done = 1;
+		let failed = framework.items.filter(
+			(item) => item.status === "failed",
+		).length;
+		const migratedIds: string[] = [];
+		const items: StageItem[] = [];
+		emit({ type: "stage-start", stage: "essential-plugins", total });
+		const results = await this.installEssentialPlugins();
+		results.forEach(({ key, result }, index) => {
+			emit({
+				type: "plugin-progress",
+				stage: "essential-plugins",
+				index,
+				total,
+				done,
+				key,
+			});
+			const entry = IOTO_PLUGINS.find((item) => item.key === key);
+			items.push({
+				label: entry ? t(entry.nameKey) : key,
+				status: result.status,
+				detail: result.error,
+			});
+			if (result.legacyId) {
+				migratedIds.push(
+					`${result.legacyId} → ${result.pluginId ?? key}`,
+				);
+			}
+			if (result.status === "failed" || result.status === "not-found") {
+				failed += 1;
+			}
+			done += 1;
+		});
+		const pluginStage: StageResult = {
+			stage: "essential-plugins",
+			status: items.some((item) => item.status === "failed")
+				? items.every((item) => item.status === "failed")
+					? "failed"
+					: "partial"
+				: "done",
+			items,
+		};
+		emit({
+			type: "stage-end",
+			stage: "essential-plugins",
+			done,
+			result: pluginStage,
+		});
+
+		emit({
+			type: "finished",
+			summary: {
+				total,
+				done,
+				wroteAnything: framework.status !== "skipped",
+				migratedIds,
+				failed,
+				stages: [framework, pluginStage],
+			},
+		});
+
+		// 启用 ioto-settings 只影响自身配置，不占面板行、不发事件。
+		if (framework.status === "done") await this.enableIotoSettingsPlugin();
+		// 框架没失败才重载，让用户停在面板结论上（倒计时 / 立即重载）。
+		if (framework.status !== "failed") {
+			const reload = () => this.app.commands.executeCommandById("app:reload");
+			if (panel) {
+				panel.requestReload(reload);
+			} else {
+				reload();
+			}
+		}
 	}
 }

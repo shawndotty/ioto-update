@@ -16,7 +16,8 @@ export type FullUpdateStageName =
 	| "framework"
 	| "setting-plugin"
 	| "aux-plugins"
-	| "self";
+	| "self"
+	| "essential-plugins";
 
 export interface StageItem {
 	label: string;

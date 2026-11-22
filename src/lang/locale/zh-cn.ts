@@ -213,6 +213,8 @@ export default {
 		"开启后，「开始更新」按钮会一次性更新框架文件、Setting 插件、全部 IOTO 辅助插件和本插件，然后只重载一次 Obsidian。",
 	"One-Click Full Update": "一键更新完整 IOTO",
 	"Full Update Progress": "更新进度",
+	"Deploy Progress": "部署进度",
+	"Installing Essential Plugins": "正在安装必备插件",
 	"Updating Framework": "正在更新框架文件",
 	"Updating Framework Setting Plugin": "正在更新框架 Setting 插件",
 	"Updating Auxiliary Plugins": "正在更新辅助插件",

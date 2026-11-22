@@ -240,6 +240,8 @@ export default {
 		"When enabled, the Start Update button updates the framework, the setting plugin, all IOTO auxiliary plugins and this plugin in one run, then reloads Obsidian once.",
 	"One-Click Full Update": "Update Complete IOTO With One Click",
 	"Full Update Progress": "Full Update Progress",
+	"Deploy Progress": "Deploy Progress",
+	"Installing Essential Plugins": "Installing essential plugins",
 	"Updating Framework": "Updating framework files",
 	"Updating Framework Setting Plugin": "Updating framework setting plugin",
 	"Updating Auxiliary Plugins": "Updating auxiliary plugins",
