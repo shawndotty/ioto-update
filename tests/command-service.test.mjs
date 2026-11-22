@@ -6,7 +6,8 @@
  *    命令面板里不会留下点了就报错的死命令；
  * 2. 「一键部署」只跑 isPartOfAllUpdates 的 5 个数据源，并只给 MyIOTO 打 intialSetup。
  *
- * 这里只替换 NocoDB 同步与网络边界（requestUrl 桩默认抛错），断言的是编排本身。
+ * 这里只替换 NocoDB 同步与安装/网络边界（一键部署会顺带装两个核心插件，
+ * installPluginByKey 被统一 stub 以收集参数），断言的是编排本身。
  */
 
 import assert from 'node:assert/strict';
@@ -128,6 +129,13 @@ function createService(settingsOverrides = {}, options = {}) {
 		templater,
 		{ getUpdateIDs: async () => ({ updateIDs: {}, userChecked: true }) },
 	);
+	// 一键部署会顺带装两个核心插件；安装边界统一 stub，断言的是编排本身。
+	// 安装命令用例（install-*）走真实下载分派，用返回的 originalInstallPluginByKey 恢复。
+	const installedKeys = [];
+	const originalInstallPluginByKey = service.installPluginByKey;
+	service.installPluginByKey = async (key) => {
+		installedKeys.push(key);
+	};
 	return {
 		service,
 		commands,
@@ -137,6 +145,8 @@ function createService(settingsOverrides = {}, options = {}) {
 		plugin,
 		saves,
 		templaterCalls,
+		installedKeys,
+		originalInstallPluginByKey,
 	};
 }
 
@@ -216,7 +226,7 @@ test('同步脚本生成器的安装命令受 iotoSettingPlugin.viewID 白名单
 });
 
 test('一键部署只跑 isPartOfAllUpdates 的 5 个数据源，并只给 MyIOTO 打 intialSetup', async () => {
-	const { service, commands, enabled, reloads } = createService();
+	const { service, commands, enabled, reloads, installedKeys } = createService();
 	service.registerCommands();
 
 	const calls = [];
@@ -242,6 +252,55 @@ test('一键部署只跑 isPartOfAllUpdates 的 5 个数据源，并只给 MyIOT
 
 	assert.deepEqual(enabled, ['ioto-settings'], '全部成功后重新启用设置插件');
 	assert.deepEqual(reloads, ['app:reload']);
+	assert.deepEqual(
+		installedKeys,
+		['ioto-tasks-center', 'ioto-dashboard'],
+		'一键部署自动安装两个核心插件，顺序固定',
+	);
+});
+
+test('框架同步全失败时仍尝试安装两个核心插件，但不启用 ioto-settings 也不重载', async () => {
+	const { service, commands, enabled, reloads, installedKeys } = createService();
+	service.registerCommands();
+	service.executeNocoDBCommand = async () => {
+		throw new Error('boom');
+	};
+
+	await commands.find((command) => command.id === 'run-all-updates').callback();
+
+	assert.deepEqual(
+		installedKeys,
+		['ioto-tasks-center', 'ioto-dashboard'],
+		'插件下载与 NocoDB 框架同步是两条独立路径，框架失败不影响安装尝试',
+	);
+	assert.deepEqual(enabled, [], '框架全失败时不启用 ioto-settings');
+	assert.deepEqual(reloads, [], '框架全失败时不重载');
+});
+
+test('单个核心插件安装失败被隔离，另一个仍被尝试且不影响其余编排', async () => {
+	const { service, commands, enabled, reloads, installedKeys } = createService();
+	service.registerCommands();
+	service.executeNocoDBCommand = async () => {};
+	service.installPluginByKey = async (key) => {
+		installedKeys.push(key);
+		if (key === 'ioto-tasks-center') throw new Error('boom');
+	};
+
+	const originalError = console.error;
+	console.error = () => {};
+	try {
+		await commands.find((command) => command.id === 'run-all-updates').callback();
+	} finally {
+		console.error = originalError;
+	}
+
+	assert.deepEqual(
+		installedKeys,
+		['ioto-tasks-center', 'ioto-dashboard'],
+		'for 循环未被第一个 key 的异常中断，第二个仍被尝试',
+	);
+	assert.deepEqual(enabled, ['ioto-settings'], '安装失败不影响 ioto-settings 启用');
+	assert.deepEqual(reloads, ['app:reload'], '安装失败不影响末尾 app:reload');
 });
 
 test('开启跳过设置且已部署过，一键部署只跑其余 4 个数据源并给出跳过提示', async () => {
@@ -601,12 +660,15 @@ test('安装命令按 pluginDownloadSource 选择 GitHub / Gitee，并带上注�
 		};
 
 		const githubRun = createService({ pluginDownloadSource: 'github' });
+		// 本用例测安装命令的真实下载分派，恢复被工厂 stub 的 installPluginByKey。
+		githubRun.service.installPluginByKey = githubRun.originalInstallPluginByKey;
 		githubRun.service.registerCommands();
 		await githubRun.commands
 			.find((command) => command.id === 'install-ioto-dashboard-from-github')
 			.callback();
 
 		const giteeRun = createService({ pluginDownloadSource: 'gitee' });
+		giteeRun.service.installPluginByKey = giteeRun.originalInstallPluginByKey;
 		giteeRun.service.registerCommands();
 		await giteeRun.commands
 			.find((command) => command.id === 'install-text-popup-from-github')

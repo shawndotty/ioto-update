@@ -485,6 +485,8 @@ export class CommandService {
 			name: t("Deploy IOTO With One Click"),
 			callback: async () => {
 				const result = await this.runFrameworkUpdate(commandConfigs);
+				// 一键部署顺带装好两个最常用插件；单个失败被内部 catch 隔离。
+				await this.installEssentialPlugins();
 				// 只有全部表都成功才启用 ioto-settings（文件没下全，启用无意义）；
 				// 但只要写过文件就重载，让 CSS / 框架文件的改动生效。
 				if (result.status === "done") {
@@ -734,6 +736,17 @@ export class CommandService {
 			return;
 		}
 		await this.installEntry(entry);
+	}
+
+	/** 一键部署时补齐两个最常用插件：未安装则装并启用，已安装则幂等升级。 */
+	private async installEssentialPlugins(): Promise<void> {
+		for (const key of ["ioto-tasks-center", "ioto-dashboard"]) {
+			try {
+				await this.installPluginByKey(key);
+			} catch (e) {
+				console.error(`Failed to install ${key}`, e);
+			}
+		}
 	}
 
 	/** 按下载源把一条注册项交给 GitHub / Gitee 服务。 */
