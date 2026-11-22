@@ -1,7 +1,7 @@
 {
 	"name": "ioto-upate",
-	"version": "2.7.9",
-	"description": "This is a plugin for updating IOTO Framework",
+	"version": "2.8.0",
+	"description": "This is a plugin for installing and updating IOTO Framework",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
