@@ -538,14 +538,23 @@ export class GiteeService {
 				tag: string;
 				isPrerelease: boolean | undefined;
 			}>;
+			const stable = releases.filter((r) => r.isPrerelease === false);
 			if (channel === "prerelease") {
 				const pre = releases.filter((r) => r.isPrerelease === true);
-				candidates =
-					pre.length > 0
-						? pre
-						: releases.filter((r) => r.isPrerelease === false);
+				// 版本单调性：预发布不低于正式版才用，否则降级到正式版避免降级安装
+				// （对齐 GitHub 通道同口径，见 Plan §〇 #8）。
+				const monotonicPre =
+					pre.length > 0 &&
+					stable.length > 0 &&
+					Utils.compareVersions(
+						pre[0].tag.replace(/^v/i, ""),
+						stable[0].tag.replace(/^v/i, ""),
+					) < 0
+						? []
+						: pre;
+				candidates = monotonicPre.length > 0 ? monotonicPre : stable;
 			} else {
-				candidates = releases.filter((r) => r.isPrerelease === false);
+				candidates = stable;
 			}
 
 			// 首个候选的 manifest 复核失败时，按降序继续尝试下一个。

@@ -738,6 +738,33 @@ test('无预览版仓库：预发布通道降级到 latest-version，不返回 n
 	assert.equal(tag, 'v1.3.0');
 });
 
+test('版本单调性：预发布低于正式版时降级到正式版，避免降级安装', async () => {
+	useRequest((url) => {
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return {
+				status: 200,
+				text: releasesPageHtml({
+					pre: ['v1.9.0'],
+					stable: ['v2.0.0'],
+				}),
+			};
+		}
+		if (url.endsWith('/releases/download/v2.0.0/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '2.0.0' }),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+	const tag = await GiteeService.getLatestReleaseTagFromPage(
+		'johnnylearns',
+		'ioto-dashboard',
+		'prerelease',
+	);
+	assert.equal(tag, 'v2.0.0');
+});
+
 test('Gitee 改版兜底：无通道标记的旧形态页面 fail-closed，不猜测通道', async () => {
 	const calls = useRequest((url) => {
 		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
