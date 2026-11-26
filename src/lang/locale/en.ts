@@ -257,4 +257,6 @@ export default {
 	"Migrated plugin id": "Migrated plugin id",
 	"Pre-release rate limit fallback":
 		"GitHub API rate limit reached; falling back to the stable release.",
+	"Gitee version check failed":
+		"Gitee API is rate-limited or unavailable; cannot confirm the online version, and the old version number was not used.",
 };

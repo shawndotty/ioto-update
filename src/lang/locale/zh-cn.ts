@@ -229,4 +229,6 @@ export default {
 	"Reloading in": "即将重载",
 	"Migrated plugin id": "已迁移插件 id",
 	"Pre-release rate limit fallback": "GitHub API 已限流，已回退到正式版。",
+	"Gitee version check failed":
+		"Gitee API 已限流或不可用，无法确认线上版本，未使用旧版本号代替。",
 };

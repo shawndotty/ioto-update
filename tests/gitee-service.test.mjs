@@ -2,7 +2,7 @@
  * `src/services/gitee-service.ts` —— 三条获取路径与 manifest 缓存。
  *
  * Gitee 的 API 限流比 GitHub 更常见，因此实现里保留了「API → releases 页面抓 tag →
- * 直接下载」的降级链；获取 manifest 时还有 master raw 的最后一层兜底。
+ * 直接下载」的降级链；master 分支早已不参与版本检测，两路都失败时 fail-closed 并提示。
  * 每一层都可能在真机上被用到，这里分别覆盖。
  */
 
@@ -80,14 +80,19 @@ test('getLatestPluginManifest 在 API 失败时抓 releases 页面拿 tag 再下
 		throw new Error(`unexpected url: ${url}`);
 	});
 
-	assert.deepEqual(await GiteeService.getLatestPluginManifest(REPO), MANIFEST);
+	// HTML 页没有预发布标记，正式通道在 Map 为空时会 fail-closed；
+	// 这个用例验证预发布通道仍能走通「抓页面 → 选 tag → 下载 manifest」链。
+	assert.deepEqual(
+		await GiteeService.getLatestPluginManifest(REPO, 'prerelease'),
+		MANIFEST,
+	);
 	assert.ok(
 		calls.some((url) => url.endsWith('/releases/download/v2.0.0/manifest.json')),
 		`未走 release 直链: ${calls.join(', ')}`,
 	);
 });
 
-test('getLatestPluginManifest 在页面也没有 tag 时回落 master raw', async () => {
+test('getLatestPluginManifest 在 API 与页面都失败时返回 null，不回落 master raw', async () => {
 	const calls = useRequest((url) => {
 		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			return { status: 500, json: {} };
@@ -100,12 +105,14 @@ test('getLatestPluginManifest 在页面也没有 tag 时回落 master raw', asyn
 		}
 		throw new Error(`unexpected url: ${url}`);
 	});
+	notices.length = 0;
 
-	assert.deepEqual(await GiteeService.getLatestPluginManifest(REPO), MANIFEST);
-	assert.equal(
-		calls.at(-1),
-		'https://gitee.com/johnnylearns/ioto-dashboard/raw/master/manifest.json',
+	assert.equal(await GiteeService.getLatestPluginManifest(REPO), null);
+	assert.ok(
+		!calls.some((url) => url.includes('/raw/master/manifest.json')),
+		'不得再请求 master raw',
 	);
+	assert.equal(notices.length, 1, '失败应给一次明确提示');
 });
 
 test('getLatestPluginManifest 命中缓存后不再发请求，清缓存后重新请求', async () => {
@@ -524,17 +531,104 @@ test('Gitee 正式通道：显式排除 prerelease（越权修复）', async () 
 	assert.ok(!calls.some((url) => url.endsWith('/releases/2/attach_files')));
 });
 
-test('Gitee HTML fallback：按通道跳过预发布 tag', async () => {
-	const html = [
-		'<span>预发布</span>',
-		'<a href="/johnnylearns/ioto-dashboard/releases/download/v2.0.1/manifest.json">v2.0.1</a>',
-		'x'.repeat(800), // 真实 release 区块远长于此，确保两个 tag 的上下文不串
-		'<a href="/johnnylearns/ioto-dashboard/releases/download/v2.0.0/manifest.json">v2.0.0</a>',
-	].join('');
-	useRequest((url) => {
-		if (url === GITEE_RELEASE_LIST_URL) throw new Error('rate limited');
+function releasesPageHtml(tags) {
+	return tags
+		.map(
+			(tag) =>
+				`<a href="/johnnylearns/ioto-dashboard/releases/download/${tag}/manifest.json">${tag}</a>`,
+		)
+		.join('');
+}
+
+test('403 → HTML fallback：预发布通道取 release 页最高 tag，绝不用 master 旧值', async () => {
+	const calls = useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
 		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
-			return { status: 200, text: html };
+			// 真机形态：页面无「预发布」字样，tag 降序首条 v2.8.7
+			return {
+				status: 200,
+				text: releasesPageHtml(['v2.8.7', 'v2.8.6', 'v2.4.2']),
+			};
+		}
+		if (url.endsWith('/raw/master/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '2.4.2' }),
+			};
+		}
+		if (url.includes('/releases/download/')) {
+			const version = url.match(/\/download\/v([^/]+)\/manifest\.json$/)?.[1];
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version }),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+	notices.length = 0;
+
+	const result = await GiteeService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	assert.equal(result.version, '2.8.7');
+	assert.ok(
+		!calls.some((url) => url.includes('/raw/master/manifest.json')),
+		'旧码会在此处取到 2.4.2',
+	);
+	assert.ok(notices.length >= 1, '403 应给一次提示');
+});
+
+test('HTML 无预发布文本时，预发布通道不再落空（600 字符正则已摘除）', async () => {
+	useRequest((url) => {
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return { status: 200, text: releasesPageHtml(['v2.8.7', 'v2.8.6']) };
+		}
+		if (url.endsWith('/releases/download/v2.8.7/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '2.8.7' }),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+
+	const tag = await GiteeService.getLatestReleaseTagFromPage(
+		'johnnylearns',
+		'ioto-dashboard',
+		'prerelease',
+	);
+	assert.equal(tag, 'v2.8.7');
+});
+
+test('HTML fallback 正式通道：Map 为空时返回 null + 提示，不选预发布 tag', async () => {
+	const calls = useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return { status: 200, text: releasesPageHtml(['v2.0.1', 'v2.0.0']) };
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+	notices.length = 0;
+
+	assert.equal(await GiteeService.getLatestPluginManifest(REPO, 'stable'), null);
+	assert.ok(notices.length >= 1);
+	assert.ok(
+		!calls.some((url) => url.includes('/releases/download/')),
+		'Map 为空时不应下载任何 release 资源',
+	);
+});
+
+test('HTML fallback 正式通道：只选 API 回填过的正式 tag，不越权选预发布', async () => {
+	// 先走 API 成功路径，让 getLatestRelease 回填 v2.0.0=false / v2.0.1=true
+	useGiteeChannelRequest();
+	const apiResult = await GiteeService.getLatestPluginManifest(REPO, 'stable');
+	assert.equal(apiResult.version, '2.0.0');
+
+	const calls = useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return { status: 200, text: releasesPageHtml(['v2.0.1', 'v2.0.0']) };
 		}
 		if (url.endsWith('/releases/download/v2.0.0/manifest.json')) {
 			return {
@@ -542,21 +636,63 @@ test('Gitee HTML fallback：按通道跳过预发布 tag', async () => {
 				text: JSON.stringify({ ...MANIFEST, version: '2.0.0' }),
 			};
 		}
-		if (url.endsWith('/releases/download/v2.0.1/manifest.json')) {
+		throw new Error(`unexpected url: ${url}`);
+	});
+
+	const result = await GiteeService.getLatestPluginManifest(REPO, 'stable');
+	assert.equal(result.version, '2.0.0');
+	assert.ok(
+		!calls.some((url) => url.includes('/releases/download/v2.0.1/')),
+		'正式通道不得下载预发布 tag',
+	);
+});
+
+test('fallback 结果不写缓存：连续两次调用都重新请求', async () => {
+	let apiCalls = 0;
+	useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) {
+			apiCalls += 1;
+			return { status: 403, json: {} };
+		}
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return { status: 200, text: releasesPageHtml(['v2.8.7']) };
+		}
+		if (url.includes('/releases/download/')) {
 			return {
 				status: 200,
-				text: JSON.stringify({ ...MANIFEST, version: '2.0.1' }),
+				text: JSON.stringify({ ...MANIFEST, version: '2.8.7' }),
 			};
 		}
 		throw new Error(`unexpected url: ${url}`);
 	});
 
-	const stable = await GiteeService.getLatestPluginManifest(REPO, 'stable');
-	assert.equal(stable.version, '2.0.0');
+	const first = await GiteeService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	const second = await GiteeService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	assert.equal(first.version, '2.8.7');
+	assert.equal(second.version, '2.8.7');
+	assert.equal(apiCalls, 2, '第二次仍应请求 API，fallback 不进 10 分钟缓存');
+});
 
-	GiteeService.clearManifestCache();
-	const pre = await GiteeService.getLatestPluginManifest(REPO, 'prerelease');
-	assert.equal(pre.version, '2.0.1');
+test('10 秒内多次检测失败只产生一条提示', async () => {
+	useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return { status: 200, text: '<html>no release</html>' };
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+	notices.length = 0;
+
+	await GiteeService.getLatestPluginManifest(REPO, 'prerelease');
+	await GiteeService.getLatestPluginManifest(REPO, 'prerelease');
+	await GiteeService.getLatestPluginManifest(REPO, 'prerelease');
+	assert.equal(notices.length, 1, '11 插件循环不应刷屏');
 });
 
 test('回归：release 列表必须显式降序，否则 Gitee 默认升序会让预发布用户取到旧版', async () => {
