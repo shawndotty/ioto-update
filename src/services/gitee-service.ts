@@ -33,8 +33,10 @@ export class GiteeService {
 	private static readonly CACHE_TTL = 10 * 60 * 1000;
 
 	/**
-	 * API 成功时回填的 tag → 是否预发布映射，供 HTML fallback 的正式通道排除预发布 tag。
-	 * key 带 `owner/repo|` 前缀，避免不同仓库的同名 tag 互相污染。
+	 * API 成功时回填的 tag → 是否预发布映射，保留给 API 成功路径做二次校验。
+	 * HTML fallback 已改为直接读 Gitee 官方 pre-version / latest-version 标记，
+	 * 不再依赖本 Map（见 getLatestReleaseTagFromPage）；key 带 `owner/repo|`
+	 * 前缀，避免不同仓库的同名 tag 互相污染。
 	 */
 	private static tagPrereleaseMap = new Map<string, boolean>();
 
@@ -433,7 +435,8 @@ export class GiteeService {
 					}
 				}
 			} catch (apiErr) {
-				this.notifyVersionCheckFailed();
+				// API 失败先不提示：HTML fallback 很可能仍然成功，
+				// 只在两路都拿不到 manifest 时统一提示（见下方）。
 				console.warn(
 					"Gitee API failed, trying releases page fallback:",
 					apiErr,
@@ -442,8 +445,8 @@ export class GiteeService {
 
 			// 方案 2：API 失败（如限流）时，抓取 releases 页面获取最新 tag，
 			// 再从该 release 下载 manifest.json，确保拿到的是真正发布的版本。
-			// Gitee releases 页没有可判读的预发布标记，正式通道的排除依据来自
-			// getLatestRelease 在 API 成功时回填的 tagPrereleaseMap。
+			// Gitee releases 页带官方中文标记（pre-version / latest-version），
+			// 通道判据由 HTML 自足完成，不依赖 API 回填的 tagPrereleaseMap。
 			if (!manifestContent) {
 				const tag = await this.getLatestReleaseTagFromPage(
 					repoInfo.owner,
@@ -484,15 +487,19 @@ export class GiteeService {
 	}
 
 	/**
-	 * 抓取 Gitee releases 页面 HTML，按通道解析出合适的 tag。
-	 * Gitee 不提供类似 GitHub 的 releases/latest/download 重定向链接，
-	 * 此方法作为 API 限流时的替代方案，master 分支绝不参与版本检测。
+	 * 抓取 Gitee releases 页面 HTML，按通道解析出合适的 tag（2026-11-26 实测）。
 	 *
-	 * 实测 releases 页与单条 release 页都没有「预发布 / prerelease」文本标记，
-	 * tag 也是纯 `vX.Y.Z`，所以不能靠上下文正则判预发布：
-	 * - 预发布通道：按 tag 版本号降序取最大者，下载它的 manifest 复核可用后返回该 tag；
-	 * - 正式通道：只从 tagPrereleaseMap（API 成功时回填）中已知的正式 tag 里取最大者，
-	 *   Map 为空或无候选时 fail-closed 返回 null，不猜测、不回退 master。
+	 * Gitee 用中文标记通道，而不是 `prerelease`：sidebar 的
+	 * `<a class='releases-sidebar-item' data-tag='v2.8.7' …>` 内含
+	 * `<span class='ui label pre-version'>预览版本</span>` 或
+	 * `<span class='ui label latest-version'>最新版</span>`；时间线区
+	 * `<div class='release-tag-item' data-tag='…'>` 带同样标记，但不强制依赖。
+	 *
+	 * - 预发布通道：优先最高预览版，无预览版时降级到最高正式版（text-popup 形态）；
+	 * - 正式通道：只取 `latest-version`，排除全部 `pre-version`；
+	 * - 选中后下载 manifest 复核，避免选到信息不完整的 release；
+	 * - Gitee 改版导致标记解析为空时退回旧 `releases/download/{tag}/` 正则，
+	 *   此时不带通道信息，按 fail-closed 处理，不猜测、不回退 master。
 	 */
 	private static async getLatestReleaseTagFromPage(
 		owner: string,
@@ -504,46 +511,83 @@ export class GiteeService {
 			const html = await this.downloadRawText(url);
 			if (!html) return null;
 
-			const seen = new Set<string>();
-			const tags: string[] = [];
-			for (const match of html.matchAll(
-				/releases\/download\/([^\/"'<>\s]+)\//g,
-			)) {
-				const tag = match[1];
-				if (seen.has(tag)) continue;
-				seen.add(tag);
-				tags.push(tag);
+			let releases = this.parseReleaseTagsFromPage(html);
+			if (releases.length === 0) {
+				// Gitee 改版兜底：旧正则只拿得到 tag，无通道标记 → fail-closed。
+				const seen = new Set<string>();
+				for (const match of html.matchAll(
+					/releases\/download\/([^\/"'<>\s]+)\//g,
+				)) {
+					const tag = match[1];
+					if (seen.has(tag)) continue;
+					seen.add(tag);
+					releases.push({ tag, isPrerelease: undefined });
+				}
 			}
-			if (tags.length === 0) return null;
+			if (releases.length === 0) return null;
 
 			// 剥离 v 前缀后按语义化版本降序，不依赖页面出现顺序。
-			tags.sort((a, b) =>
+			releases.sort((a, b) =>
 				Utils.compareVersions(
-					b.replace(/^v/i, ""),
-					a.replace(/^v/i, ""),
+					b.tag.replace(/^v/i, ""),
+					a.tag.replace(/^v/i, ""),
 				),
 			);
 
+			let candidates: Array<{
+				tag: string;
+				isPrerelease: boolean | undefined;
+			}>;
 			if (channel === "prerelease") {
-				// 复核该 tag 确实有可下载的 manifest，避免选到信息不完整的 release。
-				for (const tag of tags) {
-					const manifestUrl = `https://gitee.com/${owner}/${repo}/releases/download/${tag}/manifest.json`;
-					if (await this.downloadRawText(manifestUrl)) return tag;
-				}
-				return null;
+				const pre = releases.filter((r) => r.isPrerelease === true);
+				candidates =
+					pre.length > 0
+						? pre
+						: releases.filter((r) => r.isPrerelease === false);
+			} else {
+				candidates = releases.filter((r) => r.isPrerelease === false);
 			}
 
-			// 正式通道：只认 API 曾明确标记为非预发布的 tag，不能把预发布当正式版。
-			const stableTags = tags.filter(
-				(tag) =>
-					this.tagPrereleaseMap.get(this.tagKey(owner, repo, tag)) ===
-					false,
-			);
-			return stableTags[0] ?? null;
+			// 首个候选的 manifest 复核失败时，按降序继续尝试下一个。
+			for (const candidate of candidates) {
+				const manifestUrl = `https://gitee.com/${owner}/${repo}/releases/download/${candidate.tag}/manifest.json`;
+				if (await this.downloadRawText(manifestUrl)) return candidate.tag;
+			}
+			return null;
 		} catch (e) {
 			console.error("Failed to parse Gitee releases page:", e);
 			return null;
 		}
+	}
+
+	/**
+	 * 从 releases 页 HTML 静态解析所有 tag 与通道标记（2026-11-26 三仓库实测通用）。
+	 * 按属性片段匹配，对 class / data-tag 的书写顺序不敏感；无标记时为 undefined，
+	 * 由调用方按 fail-closed 处理，避免把未知 tag 当正式版。
+	 */
+	private static parseReleaseTagsFromPage(
+		html: string,
+	): Array<{ tag: string; isPrerelease: boolean | undefined }> {
+		const releases: Array<{
+			tag: string;
+			isPrerelease: boolean | undefined;
+		}> = [];
+		const seen = new Set<string>();
+		for (const match of html.matchAll(
+			/<a\b([^>]*releases-sidebar-item[^>]*)>([\s\S]*?)<\/a>/g,
+		)) {
+			const tagMatch = match[1].match(/data-tag=['"]([^'"]+)['"]/);
+			if (!tagMatch) continue;
+			const tag = tagMatch[1];
+			if (seen.has(tag)) continue;
+			seen.add(tag);
+			const body = match[2];
+			let isPrerelease: boolean | undefined;
+			if (/ui label pre-version/.test(body)) isPrerelease = true;
+			else if (/ui label latest-version/.test(body)) isPrerelease = false;
+			releases.push({ tag, isPrerelease });
+		}
+		return releases;
 	}
 
 	static async getLatestPluginVersion(
@@ -596,14 +640,15 @@ export class GiteeService {
 				},
 			});
 			if (response.status === 403) {
-				this.notifyVersionCheckFailed();
+				// 403 不在此处提示：等 HTML fallback 最终失败再统一提示。
 				return null;
 			}
 			if (response.status !== 200) return null;
 			const data = response.json;
 
-			// API 成功时顺手记录全部 tag 的预发布标记，供 HTML fallback 的正式通道
-			// 排除预发布 tag；403 等失败路径不写，避免用不确定的旧标记误导。
+			// API 成功时顺手记录全部 tag 的预发布标记，供 API 成功路径二次校验；
+			// HTML fallback 不依赖此 Map（它直接读 Gitee 官方中文标记）。
+			// 403 等失败路径不写，避免用不确定的旧标记误导。
 			const releases = Array.isArray(data) ? data : data ? [data] : [];
 
 			for (const release of releases) {

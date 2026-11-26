@@ -69,10 +69,7 @@ test('getLatestPluginManifest 在 API 失败时抓 releases 页面拿 tag 再下
 			throw new Error('rate limited');
 		}
 		if (url.endsWith('/releases')) {
-			return {
-				status: 200,
-				text: '<a href="/johnnylearns/ioto-dashboard/releases/download/v2.0.0/manifest.json">',
-			};
+			return { status: 200, text: releasesPageHtml({ pre: ['v2.0.0'] }) };
 		}
 		if (url.endsWith('/releases/download/v2.0.0/manifest.json')) {
 			return { status: 200, text: JSON.stringify(MANIFEST) };
@@ -80,8 +77,8 @@ test('getLatestPluginManifest 在 API 失败时抓 releases 页面拿 tag 再下
 		throw new Error(`unexpected url: ${url}`);
 	});
 
-	// HTML 页没有预发布标记，正式通道在 Map 为空时会 fail-closed；
-	// 这个用例验证预发布通道仍能走通「抓页面 → 选 tag → 下载 manifest」链。
+	// HTML 页带官方 pre-version 标记，预发布通道能走通
+	// 「抓页面 → 解析标记 → 选 tag → 下载 manifest」链。
 	assert.deepEqual(
 		await GiteeService.getLatestPluginManifest(REPO, 'prerelease'),
 		MANIFEST,
@@ -531,7 +528,26 @@ test('Gitee 正式通道：显式排除 prerelease（越权修复）', async () 
 	assert.ok(!calls.some((url) => url.endsWith('/releases/2/attach_files')));
 });
 
-function releasesPageHtml(tags) {
+/**
+ * 真实 Gitee releases 页 sidebar 形态（2026-11-26 实测）：
+ * `<a class='releases-sidebar-item' data-tag='v2.8.7' …>` 内含
+ * `<span class='ui label pre-version'>预览版本</span>` / `latest-version 最新版`。
+ */
+function releasesPageHtml({ pre = [], stable = [] } = {}) {
+	const item = (tag, labelClass, labelText) => {
+		const number = tag.replace(/^v/, '');
+		return `<a class='releases-sidebar-item' data-tag='${tag}' href='#release-${tag}'>` +
+			`<span class='tag-text' title='${number}'>${number}</span>` +
+			`<span class='ui label ${labelClass}'>${labelText}</span></a>`;
+	};
+	return [
+		...pre.map((tag) => item(tag, 'pre-version', '预览版本')),
+		...stable.map((tag) => item(tag, 'latest-version', '最新版')),
+	].join('');
+}
+
+/** 旧形态（无通道标记）：覆盖 Gitee 改版后 data-tag 标记失效的兜底分支。 */
+function legacyReleasesPageHtml(tags) {
 	return tags
 		.map(
 			(tag) =>
@@ -544,10 +560,13 @@ test('403 → HTML fallback：预发布通道取 release 页最高 tag，绝不�
 	const calls = useRequest((url) => {
 		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
 		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
-			// 真机形态：页面无「预发布」字样，tag 降序首条 v2.8.7
+			// 真机形态：pre-version v2.8.7 / latest-version v2.8.6、v2.4.2
 			return {
 				status: 200,
-				text: releasesPageHtml(['v2.8.7', 'v2.8.6', 'v2.4.2']),
+				text: releasesPageHtml({
+					pre: ['v2.8.7'],
+					stable: ['v2.8.6', 'v2.4.2'],
+				}),
 			};
 		}
 		if (url.endsWith('/raw/master/manifest.json')) {
@@ -576,13 +595,19 @@ test('403 → HTML fallback：预发布通道取 release 页最高 tag，绝不�
 		!calls.some((url) => url.includes('/raw/master/manifest.json')),
 		'旧码会在此处取到 2.4.2',
 	);
-	assert.ok(notices.length >= 1, '403 应给一次提示');
+	assert.equal(notices.length, 0, 'API 403 但 HTML fallback 成功不应提示');
 });
 
-test('HTML 无预发布文本时，预发布通道不再落空（600 字符正则已摘除）', async () => {
+test('HTML 带官方中文档标记时，预发布通道选到预览版', async () => {
 	useRequest((url) => {
 		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
-			return { status: 200, text: releasesPageHtml(['v2.8.7', 'v2.8.6']) };
+			return {
+				status: 200,
+				text: releasesPageHtml({
+					pre: ['v2.8.7'],
+					stable: ['v2.8.6'],
+				}),
+			};
 		}
 		if (url.endsWith('/releases/download/v2.8.7/manifest.json')) {
 			return {
@@ -601,26 +626,39 @@ test('HTML 无预发布文本时，预发布通道不再落空（600 字符正�
 	assert.equal(tag, 'v2.8.7');
 });
 
-test('HTML fallback 正式通道：Map 为空时返回 null + 提示，不选预发布 tag', async () => {
+test('HTML fallback 正式通道：Map 为空仍按官方标记选最新版，不选预览版', async () => {
 	const calls = useRequest((url) => {
 		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
 		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
-			return { status: 200, text: releasesPageHtml(['v2.0.1', 'v2.0.0']) };
+			return {
+				status: 200,
+				text: releasesPageHtml({
+					pre: ['v2.0.1'],
+					stable: ['v2.0.0'],
+				}),
+			};
+		}
+		if (url.endsWith('/releases/download/v2.0.0/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '2.0.0' }),
+			};
 		}
 		throw new Error(`unexpected url: ${url}`);
 	});
 	notices.length = 0;
 
-	assert.equal(await GiteeService.getLatestPluginManifest(REPO, 'stable'), null);
-	assert.ok(notices.length >= 1);
+	const result = await GiteeService.getLatestPluginManifest(REPO, 'stable');
+	assert.equal(result.version, '2.0.0');
+	assert.equal(notices.length, 0, 'API 403 但 HTML fallback 成功不应提示');
 	assert.ok(
-		!calls.some((url) => url.includes('/releases/download/')),
-		'Map 为空时不应下载任何 release 资源',
+		!calls.some((url) => url.includes('/releases/download/v2.0.1/')),
+		'正式通道不得下载预发布 tag 的 manifest',
 	);
 });
 
-test('HTML fallback 正式通道：只选 API 回填过的正式 tag，不越权选预发布', async () => {
-	// 先走 API 成功路径，让 getLatestRelease 回填 v2.0.0=false / v2.0.1=true
+test('HTML fallback 正式通道：官方标记直接判通道，不依赖 API 回填的 Map', async () => {
+	// 先走一次 API 成功路径，让 Map 回填 v2.0.0=false / v2.0.1=true
 	useGiteeChannelRequest();
 	const apiResult = await GiteeService.getLatestPluginManifest(REPO, 'stable');
 	assert.equal(apiResult.version, '2.0.0');
@@ -628,7 +666,13 @@ test('HTML fallback 正式通道：只选 API 回填过的正式 tag，不越权
 	const calls = useRequest((url) => {
 		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
 		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
-			return { status: 200, text: releasesPageHtml(['v2.0.1', 'v2.0.0']) };
+			return {
+				status: 200,
+				text: releasesPageHtml({
+					pre: ['v2.0.1'],
+					stable: ['v2.0.0'],
+				}),
+			};
 		}
 		if (url.endsWith('/releases/download/v2.0.0/manifest.json')) {
 			return {
@@ -647,6 +691,85 @@ test('HTML fallback 正式通道：只选 API 回填过的正式 tag，不越权
 	);
 });
 
+test('HTML fallback 预发布通道：API 403 下选 pre-version v2.0.1', async () => {
+	useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) return { status: 403, json: {} };
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return {
+				status: 200,
+				text: releasesPageHtml({
+					pre: ['v2.0.1'],
+					stable: ['v2.0.0'],
+				}),
+			};
+		}
+		if (url.endsWith('/releases/download/v2.0.1/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '2.0.1' }),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+
+	const result = await GiteeService.getLatestPluginManifest(REPO, 'prerelease');
+	assert.equal(result.version, '2.0.1');
+});
+
+test('无预览版仓库：预发布通道降级到 latest-version，不返回 null', async () => {
+	useRequest((url) => {
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return { status: 200, text: releasesPageHtml({ stable: ['v1.3.0'] }) };
+		}
+		if (url.endsWith('/releases/download/v1.3.0/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '1.3.0' }),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+
+	const tag = await GiteeService.getLatestReleaseTagFromPage(
+		'johnnylearns',
+		'ioto-dashboard',
+		'prerelease',
+	);
+	assert.equal(tag, 'v1.3.0');
+});
+
+test('Gitee 改版兜底：无通道标记的旧形态页面 fail-closed，不猜测通道', async () => {
+	const calls = useRequest((url) => {
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return {
+				status: 200,
+				text: legacyReleasesPageHtml(['v2.8.7', 'v2.8.6']),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+	assert.equal(
+		await GiteeService.getLatestReleaseTagFromPage(
+			'johnnylearns',
+			'ioto-dashboard',
+			'stable',
+		),
+		null,
+	);
+	assert.equal(
+		await GiteeService.getLatestReleaseTagFromPage(
+			'johnnylearns',
+			'ioto-dashboard',
+			'prerelease',
+		),
+		null,
+	);
+	assert.ok(
+		!calls.some((url) => url.includes('/releases/download/')),
+		'兜底无通道标记时不得下载任何 release 资源',
+	);
+});
+
 test('fallback 结果不写缓存：连续两次调用都重新请求', async () => {
 	let apiCalls = 0;
 	useRequest((url) => {
@@ -655,7 +778,7 @@ test('fallback 结果不写缓存：连续两次调用都重新请求', async ()
 			return { status: 403, json: {} };
 		}
 		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
-			return { status: 200, text: releasesPageHtml(['v2.8.7']) };
+			return { status: 200, text: releasesPageHtml({ pre: ['v2.8.7'] }) };
 		}
 		if (url.includes('/releases/download/')) {
 			return {
