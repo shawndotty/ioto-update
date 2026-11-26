@@ -228,4 +228,5 @@ export default {
 	"Reload Now": "立即重载",
 	"Reloading in": "即将重载",
 	"Migrated plugin id": "已迁移插件 id",
+	"Pre-release rate limit fallback": "GitHub API 已限流，已回退到正式版。",
 };

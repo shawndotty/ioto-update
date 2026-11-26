@@ -4,6 +4,7 @@ import { Utils } from "../utils";
 import {
 	InstallPluginOptions,
 	InstallPluginResult,
+	UpdateChannel,
 } from "./install-types";
 import { PluginService } from "./plugin-service";
 
@@ -13,7 +14,8 @@ const REQUEST_TIMEOUT_MS = 30 * 1000;
 export class GiteeService {
 	/**
 	 * 远程 manifest 信息的内存缓存，避免频繁请求 Gitee API。
-	 * key 为 repoUrl，value 为 { data, timestamp }。
+	 * key 为 `${repoUrl}|${channel}`（通道必须隔离，否则先查正式版再查预发布会拿到错版本），
+	 * value 为 { data, timestamp }。
 	 */
 	private static manifestCache = new Map<
 		string,
@@ -27,11 +29,12 @@ export class GiteeService {
 	private static readonly CACHE_TTL = 10 * 60 * 1000;
 
 	/**
-	 * 清除指定仓库的 manifest 缓存；若不传 repoUrl 则清除全部。
+	 * 清除指定仓库的 manifest 缓存（两个通道都清）；若不传 repoUrl 则清除全部。
 	 */
 	static clearManifestCache(repoUrl?: string) {
 		if (repoUrl) {
-			this.manifestCache.delete(repoUrl);
+			this.manifestCache.delete(`${repoUrl}|stable`);
+			this.manifestCache.delete(`${repoUrl}|prerelease`);
 		} else {
 			this.manifestCache.clear();
 		}
@@ -49,7 +52,7 @@ export class GiteeService {
 		repoUrl: string,
 		options: InstallPluginOptions = {},
 	): Promise<InstallPluginResult> {
-		const { autoReload = true, silent = false } = options;
+		const { autoReload = true, silent = false, channel = "stable" } = options;
 		let notice: Notice | null = null;
 		const notify = (message: string, timeout?: number) => {
 			if (!silent) new Notice(message, timeout);
@@ -70,9 +73,13 @@ export class GiteeService {
 			}
 
 			// 获取插件 release 文件（manifest.json / main.js / styles.css），
-			// 内部会先尝试 Gitee API，失败时降级到 releases 页面抓取 tag 后直接下载，
+			// 内部按通道从 release 列表选版，失败时降级到 releases 页面抓取 tag 后直接下载，
 			// 与 getLatestPluginManifest 的限流降级策略保持一致。
-			const files = await this.fetchPluginReleaseFiles(owner, repo);
+			const files = await this.fetchPluginReleaseFiles(
+				owner,
+				repo,
+				channel,
+			);
 			if (!files || !files.manifestContent || !files.mainJsContent) {
 				if (notice) notice.hide();
 				notify(t("No release found for this repository"));
@@ -246,6 +253,7 @@ export class GiteeService {
 	private static async fetchPluginReleaseFiles(
 		owner: string,
 		repo: string,
+		channel: UpdateChannel = "stable",
 	): Promise<{
 		manifestContent: string;
 		mainJsContent: string;
@@ -253,7 +261,7 @@ export class GiteeService {
 	} | null> {
 		// 方案 1：Gitee API（成功则直接返回；失败/限流/无 release 则降级）
 		try {
-			const release = await this.getLatestRelease(owner, repo);
+			const release = await this.getLatestRelease(owner, repo, channel);
 			if (release) {
 				const assets = await this.getReleaseAssets(
 					owner,
@@ -310,7 +318,7 @@ export class GiteeService {
 		// 方案 2：API 失败（限流/无 release）时，抓取 releases 页面获取最新 tag，
 		// 然后直接从 release 下载文件
 		try {
-			const tag = await this.getLatestReleaseTagFromPage(owner, repo);
+			const tag = await this.getLatestReleaseTagFromPage(owner, repo, channel);
 			if (!tag) return null;
 
 			const baseUrl = `https://gitee.com/${owner}/${repo}/releases/download/${tag}`;
@@ -345,9 +353,11 @@ export class GiteeService {
 
 	static async getLatestPluginManifest(
 		repoUrl: string,
+		channel: UpdateChannel = "stable",
 	): Promise<{ id: string; name: string; version: string } | null> {
+		const cacheKey = `${repoUrl}|${channel}`;
 		// 优先读取缓存，未过期则直接返回
-		const cached = this.manifestCache.get(repoUrl);
+		const cached = this.manifestCache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
 			return cached.data;
 		}
@@ -363,6 +373,7 @@ export class GiteeService {
 				const release = await this.getLatestRelease(
 					repoInfo.owner,
 					repoInfo.repo,
+					channel,
 				);
 				if (release) {
 					const assets = await this.getReleaseAssets(
@@ -395,6 +406,7 @@ export class GiteeService {
 				const tag = await this.getLatestReleaseTagFromPage(
 					repoInfo.owner,
 					repoInfo.repo,
+					channel,
 				);
 				if (tag) {
 					const releaseUrl = `https://gitee.com/${repoInfo.owner}/${repoInfo.repo}/releases/download/${tag}/manifest.json`;
@@ -418,7 +430,7 @@ export class GiteeService {
 				version: manifest.version,
 			};
 			// 写入缓存
-			this.manifestCache.set(repoUrl, {
+			this.manifestCache.set(cacheKey, {
 				data: result,
 				timestamp: Date.now(),
 			});
@@ -430,21 +442,40 @@ export class GiteeService {
 	}
 
 	/**
-	 * 抓取 Gitee releases 页面 HTML，解析出最新 release 的 tag。
+	 * 抓取 Gitee releases 页面 HTML，按通道解析出合适的 tag。
 	 * Gitee 不提供类似 GitHub 的 releases/latest/download 重定向链接，
 	 * 此方法作为 API 限流时的替代方案，避免直接使用 master 分支（可能不是发布版本）。
+	 *
+	 * 不能只看第一个 tag：页面同时列出预发布与正式版，需按相邻上下文里的
+	 * prerelease / 预发布 标记过滤，否则正式通道用户会被装到预发布。
 	 */
 	private static async getLatestReleaseTagFromPage(
 		owner: string,
 		repo: string,
+		channel: UpdateChannel = "stable",
 	): Promise<string | null> {
 		try {
 			const url = `https://gitee.com/${owner}/${repo}/releases`;
 			const html = await this.downloadRawText(url);
 			if (!html) return null;
-			// releases 页面中第一个 releases/download/{tag}/ 即为最新版本
-			const match = html.match(/releases\/download\/([^\/"'<>\s]+)\//);
-			return match ? match[1] : null;
+			const seen = new Set<string>();
+			for (const match of html.matchAll(
+				/releases\/download\/([^\/"'<>\s]+)\//g,
+			)) {
+				const tag = match[1];
+				if (seen.has(tag)) continue;
+				seen.add(tag);
+				// 标记位于 tag 所在 release 区块内，取前 600 字符足够覆盖标题行
+				const index = match.index ?? 0;
+				const context = html.slice(Math.max(0, index - 600), index);
+				const isPreRelease = /prerelease|pre-release|预发布|預發布/i.test(
+					context,
+				);
+				if (channel === "prerelease" ? isPreRelease : !isPreRelease) {
+					return tag;
+				}
+			}
+			return null;
 		} catch (e) {
 			console.error("Failed to parse Gitee releases page:", e);
 			return null;
@@ -453,8 +484,9 @@ export class GiteeService {
 
 	static async getLatestPluginVersion(
 		repoUrl: string,
+		channel: UpdateChannel = "stable",
 	): Promise<string | null> {
-		const manifest = await this.getLatestPluginManifest(repoUrl);
+		const manifest = await this.getLatestPluginManifest(repoUrl, channel);
 		return manifest ? manifest.version : null;
 	}
 
@@ -474,11 +506,23 @@ export class GiteeService {
 		return null;
 	}
 
+	/**
+	 * 按通道选 release：
+	 * - prerelease：只取 prerelease === true；
+	 * - stable：显式排除 prerelease（Gitee `/releases/latest` 会把预发布当最新，
+	 *   直接用会让正式用户也被装到预发布）。
+	 * API 返回单个对象（旧桩/边界）时按同一判据放行。
+	 */
 	private static async getLatestRelease(
 		owner: string,
 		repo: string,
+		channel: UpdateChannel = "stable",
 	): Promise<any> {
-		const url = `https://gitee.com/api/v5/repos/${owner}/${repo}/releases/latest`;
+		// Gitee 的 /releases 默认按创建时间「升序」返回（最旧在前），
+		// 不带 direction=desc 时 per_page=20 只会拿到最旧 20 条，
+		// 最新预发布/正式版根本不在其中：预发布用户取不到预发布，
+		// 正式用户反而会被装到最旧的非预发布版本。必须显式降序。
+		const url = `https://gitee.com/api/v5/repos/${owner}/${repo}/releases?per_page=20&direction=desc`;
 		try {
 			const response = await this.request({
 				url,
@@ -487,9 +531,23 @@ export class GiteeService {
 					Accept: "application/json",
 				},
 			});
-			if (response.status === 200) {
-				return response.json;
+			if (response.status !== 200) return null;
+			const data = response.json;
+			const matches = (release: any) =>
+				channel === "prerelease"
+					? release?.prerelease === true
+					: release?.prerelease !== true;
+			if (!Array.isArray(data)) {
+				return matches(data) ? data : null;
 			}
+			const candidates = data.filter(matches);
+			candidates.sort((a: any, b: any) => {
+				const ta = Date.parse(a.created_at || "") || 0;
+				const tb = Date.parse(b.created_at || "") || 0;
+				if (ta !== tb) return tb - ta;
+				return (b.id || 0) - (a.id || 0);
+			});
+			return candidates[0] ?? null;
 		} catch (e) {
 			console.error("Error fetching Gitee release:", e);
 		}

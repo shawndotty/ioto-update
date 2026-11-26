@@ -6,6 +6,11 @@
  * 两个下载源（GitHub / Gitee）必须返回同一种结构。
  */
 
+/**
+ * 更新通道。默认 `stable`，保证未显式传通道的旧调用方行为不变。
+ */
+export type UpdateChannel = "stable" | "prerelease";
+
 export interface InstallPluginOptions {
 	/**
 	 * 安装 / 更新文件后是否立即调用 `PluginService.reloadAndEnablePlugin`。
@@ -19,6 +24,11 @@ export interface InstallPluginOptions {
 	 * 默认 `false`。
 	 */
 	silent?: boolean;
+	/**
+	 * 下载通道。`prerelease` 时下载源优先选预发布 release；
+	 * 默认 `stable`（保持旧行为）。
+	 */
+	channel?: UpdateChannel;
 }
 
 export type InstallPluginStatus =

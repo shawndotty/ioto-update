@@ -4,6 +4,7 @@ import { Utils } from "../utils";
 import {
 	InstallPluginOptions,
 	InstallPluginResult,
+	UpdateChannel,
 } from "./install-types";
 import { PluginService } from "./plugin-service";
 
@@ -13,7 +14,8 @@ const REQUEST_TIMEOUT_MS = 30 * 1000;
 export class GithubService {
 	/**
 	 * 远程 manifest 信息的内存缓存，避免频繁请求 GitHub API 触发限流。
-	 * key 为 repoUrl，value 为 { data, timestamp }。
+	 * key 为 `${repoUrl}|${channel}`（通道必须隔离，否则先查正式版再查预发布会拿到错版本），
+	 * value 为 { data, timestamp }。
 	 */
 	private static manifestCache = new Map<
 		string,
@@ -27,11 +29,12 @@ export class GithubService {
 	private static readonly CACHE_TTL = 10 * 60 * 1000;
 
 	/**
-	 * 清除指定仓库的 manifest 缓存；若不传 repoUrl 则清除全部。
+	 * 清除指定仓库的 manifest 缓存（两个通道都清）；若不传 repoUrl 则清除全部。
 	 */
 	static clearManifestCache(repoUrl?: string) {
 		if (repoUrl) {
-			this.manifestCache.delete(repoUrl);
+			this.manifestCache.delete(`${repoUrl}|stable`);
+			this.manifestCache.delete(`${repoUrl}|prerelease`);
 		} else {
 			this.manifestCache.clear();
 		}
@@ -39,9 +42,11 @@ export class GithubService {
 
 	static async getLatestPluginManifest(
 		repoUrl: string,
+		channel: UpdateChannel = "stable",
 	): Promise<{ id: string; name: string; version: string } | null> {
+		const cacheKey = `${repoUrl}|${channel}`;
 		// 优先读取缓存，未过期则直接返回
-		const cached = this.manifestCache.get(repoUrl);
+		const cached = this.manifestCache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
 			return cached.data;
 		}
@@ -49,6 +54,38 @@ export class GithubService {
 		try {
 			const repoInfo = this.parseRepoUrl(repoUrl);
 			if (!repoInfo) return null;
+
+			// 预发布通道：release list 探测最新 prerelease（失败/限流/版本过低都降级正式版）
+			if (channel === "prerelease") {
+				const release = await this.pickPrereleaseRelease(
+					repoInfo.owner,
+					repoInfo.repo,
+				);
+				if (release) {
+					const downloaded = await this.downloadReleaseManifest(release);
+					if (
+						downloaded &&
+						(await this.isPrereleaseNewEnough(
+							repoUrl,
+							downloaded.version,
+						))
+					) {
+						const manifest = JSON.parse(downloaded.content);
+						if (manifest?.id) {
+							const result = {
+								id: manifest.id,
+								name: manifest.name || manifest.id,
+								version: manifest.version,
+							};
+							this.manifestCache.set(cacheKey, {
+								data: result,
+								timestamp: Date.now(),
+							});
+							return result;
+						}
+					}
+				}
+			}
 
 			// 直接通过 release 下载 URL 获取最新 manifest.json，
 			// 不经过 GitHub API，避免触发 60 次/小时的未认证限流。
@@ -64,7 +101,7 @@ export class GithubService {
 				version: manifest.version,
 			};
 			// 写入缓存
-			this.manifestCache.set(repoUrl, {
+			this.manifestCache.set(cacheKey, {
 				data: result,
 				timestamp: Date.now(),
 			});
@@ -85,7 +122,7 @@ export class GithubService {
 		repoUrl: string,
 		options: InstallPluginOptions = {},
 	): Promise<InstallPluginResult> {
-		const { autoReload = true, silent = false } = options;
+		const { autoReload = true, silent = false, channel = "stable" } = options;
 		let notice: Notice | null = null;
 		const notify = (message: string, timeout?: number) => {
 			if (!silent) new Notice(message, timeout);
@@ -107,9 +144,15 @@ export class GithubService {
 			}
 
 			// 获取插件 release 文件（manifest.json / main.js / styles.css），
-			// 优先通过 releases/latest/download 直连下载（不走 API，不受 60 次/小时限流影响），
-			// 直连失败时降级到 GitHub API。
-			const files = await this.fetchPluginReleaseFiles(owner, repo);
+			// 预发布通道先探测 prerelease，失败/限流/版本过低时降级到
+			// releases/latest/download 直连（不走 API，不受 60 次/小时限流影响），
+			// 直连失败时再降级到 GitHub API。
+			const files = await this.fetchPluginReleaseFiles(
+				owner,
+				repo,
+				channel,
+				silent,
+			);
 			if (!files || !files.manifestContent || !files.mainJsContent) {
 				if (notice) notice.hide();
 				notify(t("No release found for this repository"));
@@ -289,11 +332,35 @@ export class GithubService {
 	private static async fetchPluginReleaseFiles(
 		owner: string,
 		repo: string,
+		channel: UpdateChannel = "stable",
+		silent = false,
 	): Promise<{
 		manifestContent: string;
 		mainJsContent: string;
 		stylesCssContent: string;
 	} | null> {
+		// 预发布通道：release list 探测并下载 prerelease 的三个文件；
+		// 没有更合适的预发布时安静降级到下面的正式版路径。
+		if (channel === "prerelease") {
+			const release = await this.pickPrereleaseRelease(owner, repo, silent);
+			if (release) {
+				const downloaded = await this.downloadReleaseFiles(release);
+				if (
+					downloaded &&
+					(await this.isPrereleaseNewEnough(
+						`https://github.com/${owner}/${repo}`,
+						downloaded.version,
+					))
+				) {
+					return {
+						manifestContent: downloaded.manifestContent,
+						mainJsContent: downloaded.mainJsContent,
+						stylesCssContent: downloaded.stylesCssContent,
+					};
+				}
+			}
+		}
+
 		// 方案 1：直连下载 URL（不走 API，不受限流影响）
 		const baseUrl = `https://github.com/${owner}/${repo}/releases/latest/download`;
 		try {
@@ -361,9 +428,119 @@ export class GithubService {
 
 	static async getLatestPluginVersion(
 		repoUrl: string,
+		channel: UpdateChannel = "stable",
 	): Promise<string | null> {
-		const manifest = await this.getLatestPluginManifest(repoUrl);
+		const manifest = await this.getLatestPluginManifest(repoUrl, channel);
 		return manifest ? manifest.version : null;
+	}
+
+	/**
+	 * 从 release list 中挑出最新一条非 draft 的 prerelease。
+	 * 403 限流时降级正式版并提示一次（静音调用只记控制台）。
+	 */
+	private static async pickPrereleaseRelease(
+		owner: string,
+		repo: string,
+		silent = false,
+	): Promise<any | null> {
+		const url = `https://api.github.com/repos/${owner}/${repo}/releases?per_page=10`;
+		let response: any;
+		try {
+			response = await this.request({
+				url,
+				method: "GET",
+				headers: { Accept: "application/vnd.github.v3+json" },
+			});
+		} catch (e) {
+			console.warn("GitHub prerelease probe failed:", e);
+			return null;
+		}
+		if (response?.status === 403) {
+			console.warn("GitHub prerelease probe hit rate limit (403)");
+			if (!silent) new Notice(t("Pre-release rate limit fallback"));
+			return null;
+		}
+		if (response?.status !== 200 || !Array.isArray(response.json)) return null;
+		const candidates = response.json.filter(
+			(r: any) => r.prerelease === true && r.draft !== true,
+		);
+		candidates.sort((a: any, b: any) => {
+			const ta = Date.parse(a.published_at || a.created_at || "") || 0;
+			const tb = Date.parse(b.published_at || b.created_at || "") || 0;
+			return tb - ta;
+		});
+		return candidates[0] ?? null;
+	}
+
+	/** 下载单个 release 的 manifest.json，读出版本。 */
+	private static async downloadReleaseManifest(
+		release: any,
+	): Promise<{ content: string; version: string } | null> {
+		const asset = release?.assets?.find(
+			(a: any) => a.name === "manifest.json",
+		);
+		if (!asset?.browser_download_url) return null;
+		try {
+			const content = await this.downloadAsset(asset.browser_download_url);
+			const version = JSON.parse(content)?.version;
+			return typeof version === "string" ? { content, version } : null;
+		} catch (e) {
+			console.warn("Failed to download prerelease manifest:", e);
+			return null;
+		}
+	}
+
+	/** 下载单个 release 的 manifest.json / main.js / styles.css。 */
+	private static async downloadReleaseFiles(
+		release: any,
+	): Promise<{
+		manifestContent: string;
+		mainJsContent: string;
+		stylesCssContent: string;
+		version: string;
+	} | null> {
+		const downloadedManifest = await this.downloadReleaseManifest(release);
+		if (!downloadedManifest) return null;
+		const mainJsAsset = release?.assets?.find(
+			(a: any) => a.name === "main.js",
+		);
+		if (!mainJsAsset?.browser_download_url) return null;
+		try {
+			const mainJsContent = await this.downloadAsset(
+				mainJsAsset.browser_download_url,
+			);
+			let stylesCssContent = "";
+			const stylesCssAsset = release?.assets?.find(
+				(a: any) => a.name === "styles.css",
+			);
+			if (stylesCssAsset?.browser_download_url) {
+				stylesCssContent = await this.downloadAsset(
+					stylesCssAsset.browser_download_url,
+				);
+			}
+			return {
+				manifestContent: downloadedManifest.content,
+				mainJsContent,
+				stylesCssContent,
+				version: downloadedManifest.version,
+			};
+		} catch (e) {
+			console.warn("Failed to download prerelease assets:", e);
+			return null;
+		}
+	}
+
+	/**
+	 * 选版优先级：仅当预发布版本 >= 最新正式版时才采用预发布，
+	 * 避免用户被装到更旧的预发布。拿不到正式版版本时信任预发布。
+	 */
+	private static async isPrereleaseNewEnough(
+		repoUrl: string,
+		prereleaseVersion: string,
+	): Promise<boolean> {
+		const stableVersion = await this.getLatestPluginVersion(repoUrl, "stable");
+		if (!stableVersion) return true;
+		return Utils.compareVersions(prereleaseVersion, stableVersion) >= 0;
 	}
 
 	private static parseRepoUrl(

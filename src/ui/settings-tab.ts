@@ -11,6 +11,8 @@ import { Utils } from "../utils";
 import { GithubService } from "../services/github-service";
 import { GiteeService } from "../services/gitee-service";
 import { PluginService } from "../services/plugin-service";
+import { isPreReleaseChannel } from "../services/channel";
+import { UpdateChannel } from "../services/install-types";
 import {
 	IOTO_PLUGINS,
 	IOTOPluginEntry,
@@ -38,6 +40,13 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: IOTOUpdate) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	/** 当前更新通道，与命令层共用同一判定口径。 */
+	private get channel(): UpdateChannel {
+		return isPreReleaseChannel(this.plugin.settings)
+			? "prerelease"
+			: "stable";
 	}
 
 	display(): void {
@@ -104,9 +113,11 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 							source === "github"
 								? await GithubService.getLatestPluginVersion(
 										repoUrl,
+										this.channel,
 									)
 								: await GiteeService.getLatestPluginVersion(
 										repoUrl,
+										this.channel,
 									);
 
 						button.setDisabled(false);
@@ -156,13 +167,19 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 												await GithubService.installPluginFrom(
 													this.app,
 													repoUrl,
-													{ autoReload: false },
+													{
+														autoReload: false,
+														channel: this.channel,
+													},
 												);
 											} else {
 												await GiteeService.installPluginFrom(
 													this.app,
 													repoUrl,
-													{ autoReload: false },
+													{
+														autoReload: false,
+														channel: this.channel,
+													},
 												);
 											}
 											b.setButtonText(t("Updated"));
@@ -364,7 +381,10 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 		const service =
 			source === "github" ? GithubService : GiteeService;
 
-		const manifest = await service.getLatestPluginManifest(repoUrl);
+		const manifest = await service.getLatestPluginManifest(
+			repoUrl,
+			this.channel,
+		);
 		if (!manifest) {
 			return { state: "error" };
 		}
@@ -559,10 +579,12 @@ export class IOTOUpdateSettingTab extends PluginSettingTab {
 			if (source === "github") {
 				await GithubService.installPluginFrom(this.app, repoUrl, {
 					autoReload: true,
+					channel: this.channel,
 				});
 			} else {
 				await GiteeService.installPluginFrom(this.app, repoUrl, {
 					autoReload: true,
+					channel: this.channel,
 				});
 			}
 		} catch (err) {

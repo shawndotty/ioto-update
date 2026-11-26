@@ -810,7 +810,7 @@ test('未安装的辅助插件直接跳过，不进下载队列', async () => {
 			{
 				source: 'gitee',
 				url: 'https://gitee.com/johnnylearns/ob-sync-with-mdb',
-				options: { autoReload: false, silent: true },
+				options: { autoReload: false, silent: true, channel: 'stable' },
 			},
 		], '编排链路必须静音且不自动重载');
 	} finally {

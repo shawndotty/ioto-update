@@ -342,3 +342,174 @@ test('silent 为真时不发任何 Notice', async () => {
 
 	assert.deepEqual(notices, []);
 });
+
+// ---------------------------------------------------------------------------
+// Pre-Release 通道（release list 探测 → 选版 → 降级）
+// ---------------------------------------------------------------------------
+
+const RELEASE_LIST_URL =
+	'https://api.github.com/repos/shawndotty/ioto-dashboard/releases?per_page=10';
+const STABLE_MANIFEST_URL =
+	'https://github.com/shawndotty/ioto-dashboard/releases/latest/download/manifest.json';
+const PRE_MANIFEST_URL = 'https://objects.example/pre/manifest.json';
+const PRE_MAIN_JS_URL = 'https://objects.example/pre/main.js';
+
+function preRelease({
+	version = '2.8.4',
+	published = '2026-11-26T10:00:00Z',
+	prerelease = true,
+	draft = false,
+} = {}) {
+	return {
+		id: 101,
+		prerelease,
+		draft,
+		published_at: published,
+		assets: [
+			{ name: 'manifest.json', browser_download_url: PRE_MANIFEST_URL },
+			{ name: 'main.js', browser_download_url: PRE_MAIN_JS_URL },
+		],
+		version,
+	};
+}
+
+function useChannelRequest(overrides = {}) {
+	return useRequest((url) => {
+		if (url === RELEASE_LIST_URL) {
+			return (
+				overrides.list ?? {
+					status: 200,
+					json: [preRelease()],
+				}
+			);
+		}
+		if (url === PRE_MANIFEST_URL) {
+			return textResponse(
+				JSON.stringify({
+					...MANIFEST,
+					version: overrides.preVersion ?? '2.8.4',
+				}),
+			);
+		}
+		if (url === PRE_MAIN_JS_URL) {
+			return textResponse('prerelease main');
+		}
+		if (url === STABLE_MANIFEST_URL) {
+			return textResponse(
+				JSON.stringify({
+					...MANIFEST,
+					version: overrides.stableVersion ?? '2.8.3',
+				}),
+			);
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+}
+
+test('prerelease 通道：release list 选中最新 prerelease 的 manifest', async () => {
+	const calls = useChannelRequest({
+		list: {
+			status: 200,
+			json: [
+				preRelease({
+					version: '2.8.3',
+					prerelease: false,
+					published: '2026-11-20T10:00:00Z',
+				}),
+				preRelease(),
+			],
+		},
+	});
+
+	const result = await GithubService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	assert.equal(result.version, '2.8.4');
+	assert.ok(calls.includes(RELEASE_LIST_URL));
+});
+
+test('prerelease 通道：没有 prerelease 时降级 /releases/latest', async () => {
+	useChannelRequest({
+		list: { status: 200, json: [preRelease({ prerelease: false })] },
+	});
+	const result = await GithubService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	assert.equal(result.version, '2.8.3');
+});
+
+test('prerelease 通道：release list 403 时降级正式版并提示一次', async () => {
+	useChannelRequest({ list: { status: 403, json: {} } });
+	notices.length = 0;
+
+	const result = await GithubService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	assert.equal(result.version, '2.8.3');
+	assert.equal(notices.filter((n) => n.includes('rate limit')).length, 1);
+});
+
+test('prerelease 版本低于最新正式版时不采用', async () => {
+	useChannelRequest({ preVersion: '2.8.2', stableVersion: '2.8.3' });
+	const result = await GithubService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	assert.equal(result.version, '2.8.3');
+});
+
+test('manifest 缓存按通道隔离：先 stable 后 prerelease 不串版本', async () => {
+	const calls = useChannelRequest();
+
+	assert.equal(
+		(await GithubService.getLatestPluginManifest(REPO, 'stable')).version,
+		'2.8.3',
+	);
+	assert.equal(
+		(await GithubService.getLatestPluginManifest(REPO, 'prerelease')).version,
+		'2.8.4',
+	);
+	const afterTwo = calls.length;
+	assert.equal(
+		(await GithubService.getLatestPluginManifest(REPO, 'stable')).version,
+		'2.8.3',
+	);
+	assert.equal(calls.length, afterTwo, 'stable 命中自己的缓存，不再发请求');
+});
+
+test('prerelease 通道 installPluginFrom 写入预发布的 main.js', async () => {
+	useChannelRequest();
+	const writes = [];
+	const app = {
+		vault: {
+			configDir: '.obsidian',
+			adapter: {
+				async exists() {
+					return true;
+				},
+				async mkdir() {},
+				async write(path, content) {
+					writes.push({ path, content });
+				},
+			},
+		},
+		plugins: { manifests: {}, enabledPlugins: new Set() },
+	};
+
+	const result = await GithubService.installPluginFrom(app, REPO, {
+		autoReload: false,
+		silent: true,
+		channel: 'prerelease',
+	});
+
+	assert.equal(result.status, 'updated');
+	assert.equal(result.toVersion, '2.8.4');
+	assert.ok(
+		writes.some(
+			(w) => w.path.endsWith('main.js') && w.content === 'prerelease main',
+		),
+	);
+});

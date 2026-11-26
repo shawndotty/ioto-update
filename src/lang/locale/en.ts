@@ -255,4 +255,6 @@ export default {
 	"Reload Now": "Reload now",
 	"Reloading in": "Reloading in",
 	"Migrated plugin id": "Migrated plugin id",
+	"Pre-release rate limit fallback":
+		"GitHub API rate limit reached; falling back to the stable release.",
 };

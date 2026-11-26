@@ -17,13 +17,18 @@ import { GiteeService } from "./gitee-service";
 import { PluginService } from "./plugin-service";
 import { AIPlatformSuggester } from "../suggesters/ai-platform-suggester";
 import { IOTO_PLUGINS, IOTOPluginEntry, isSSGViewIDAllowed } from "./plugin-registry";
+import { isPreReleaseChannel } from "./channel";
 import {
 	runFullUpdate,
 	FullUpdateEvent,
 	StageItem,
 	StageResult,
 } from "./full-update-service";
-import { InstallPluginResult } from "./install-types";
+import {
+	InstallPluginOptions,
+	InstallPluginResult,
+	UpdateChannel,
+} from "./install-types";
 import { FullUpdateProgressPanel } from "../ui/progress-panel";
 import {
 	askMyIotoSubFolderMode,
@@ -760,18 +765,38 @@ export class CommandService {
 		return results;
 	}
 
+	/**
+	 * 通道唯一计算点：一键命令 / 一键部署 / 辅助插件更新都走这里，
+	 * 避免多处各写一遍选版口径。显式传入的 channel 优先（自身更新强制 stable）。
+	 */
+	private getUpdateChannel(): UpdateChannel {
+		return isPreReleaseChannel(this.settings) ? "prerelease" : "stable";
+	}
+
 	/** 按下载源把一条注册项交给 GitHub / Gitee 服务。 */
 	private async installEntry(
 		entry: IOTOPluginEntry,
-		options: { autoReload?: boolean; silent?: boolean } = {},
+		options: InstallPluginOptions = {},
 	): Promise<InstallPluginResult> {
 		const source = this.settings.pluginDownloadSource || "gitee";
 		const repoUrl =
 			source === "github" ? entry.githubUrl : entry.giteeUrl;
+		const installOptions: InstallPluginOptions = {
+			...options,
+			channel: options.channel ?? this.getUpdateChannel(),
+		};
 		if (source === "github") {
-			return GithubService.installPluginFrom(this.app, repoUrl, options);
+			return GithubService.installPluginFrom(
+				this.app,
+				repoUrl,
+				installOptions,
+			);
 		}
-		return GiteeService.installPluginFrom(this.app, repoUrl, options);
+		return GiteeService.installPluginFrom(
+			this.app,
+			repoUrl,
+			installOptions,
+		);
 	}
 
 	/**
@@ -853,16 +878,17 @@ export class CommandService {
 			source === "github"
 				? "https://github.com/shawndotty/ioto-update"
 				: "https://gitee.com/johnnylearns/ioto-update";
-		if (source === "github") {
-			return GithubService.installPluginFrom(this.app, repoUrl, {
-				autoReload: false,
-				silent: true,
-			});
-		}
-		return GiteeService.installPluginFrom(this.app, repoUrl, {
+		// 决策基线 #5：ioto-update 自身不做预发布通道，强制 stable；
+		// 辅助插件的通道统一由 installEntry 计算，二者口径在这里汇合。
+		const options: InstallPluginOptions = {
 			autoReload: false,
 			silent: true,
-		});
+			channel: "stable",
+		};
+		if (source === "github") {
+			return GithubService.installPluginFrom(this.app, repoUrl, options);
+		}
+		return GiteeService.installPluginFrom(this.app, repoUrl, options);
 	}
 
 	/**

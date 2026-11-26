@@ -35,7 +35,7 @@ test.afterEach(() => {
 
 test('getLatestPluginManifest 走 API：release → assets → 下载 manifest', async () => {
 	const calls = useRequest((url) => {
-		if (url.endsWith('/releases/latest')) {
+		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			return { status: 200, json: { id: 42, tag_name: 'v2.0.0' } };
 		}
 		if (url.endsWith('/releases/42/attach_files')) {
@@ -57,7 +57,7 @@ test('getLatestPluginManifest 走 API：release → assets → 下载 manifest',
 
 	assert.deepEqual(await GiteeService.getLatestPluginManifest(REPO), MANIFEST);
 	assert.deepEqual(calls, [
-		'https://gitee.com/api/v5/repos/johnnylearns/ioto-dashboard/releases/latest',
+		'https://gitee.com/api/v5/repos/johnnylearns/ioto-dashboard/releases?per_page=20&direction=desc',
 		'https://gitee.com/api/v5/repos/johnnylearns/ioto-dashboard/releases/42/attach_files',
 		'https://gitee.example/manifest.json',
 	]);
@@ -65,7 +65,7 @@ test('getLatestPluginManifest 走 API：release → assets → 下载 manifest',
 
 test('getLatestPluginManifest 在 API 失败时抓 releases 页面拿 tag 再下载', async () => {
 	const calls = useRequest((url) => {
-		if (url.endsWith('/releases/latest')) {
+		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			throw new Error('rate limited');
 		}
 		if (url.endsWith('/releases')) {
@@ -89,7 +89,7 @@ test('getLatestPluginManifest 在 API 失败时抓 releases 页面拿 tag 再下
 
 test('getLatestPluginManifest 在页面也没有 tag 时回落 master raw', async () => {
 	const calls = useRequest((url) => {
-		if (url.endsWith('/releases/latest')) {
+		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			return { status: 500, json: {} };
 		}
 		if (url.endsWith('/releases')) {
@@ -110,7 +110,7 @@ test('getLatestPluginManifest 在页面也没有 tag 时回落 master raw', asyn
 
 test('getLatestPluginManifest 命中缓存后不再发请求，清缓存后重新请求', async () => {
 	const calls = useRequest((url) => {
-		if (url.endsWith('/releases/latest')) {
+		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			return { status: 200, json: { id: 1, tag_name: 'v2.0.0' } };
 		}
 		if (url.endsWith('/attach_files')) {
@@ -139,7 +139,7 @@ test('getLatestPluginManifest 命中缓存后不再发请求，清缓存后重�
 
 test('parseRepoUrl 支持 owner/repo 与带 .git 的地址', async () => {
 	const calls = useRequest((url) => {
-		if (url.endsWith('/releases/latest')) {
+		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			return { status: 200, json: { id: 1, tag_name: 'v1' } };
 		}
 		if (url.endsWith('/attach_files')) {
@@ -157,21 +157,21 @@ test('parseRepoUrl 支持 owner/repo 与带 .git 的地址', async () => {
 	});
 
 	await GiteeService.getLatestPluginManifest('johnnylearns/ioto-dashboard');
-	assert.ok(calls[0].includes('/repos/johnnylearns/ioto-dashboard/releases/latest'));
+	assert.ok(calls[0].includes('/repos/johnnylearns/ioto-dashboard/releases?per_page=20&direction=desc'));
 
 	GiteeService.clearManifestCache();
 	await GiteeService.getLatestPluginManifest(
 		'https://gitee.com/johnnylearns/ioto-dashboard.git',
 	);
 	assert.ok(
-		calls.at(-3).includes('/repos/johnnylearns/ioto-dashboard/releases/latest'),
+		calls.at(-3).includes('/repos/johnnylearns/ioto-dashboard/releases?per_page=20&direction=desc'),
 		'应去掉 .git 后缀',
 	);
 });
 
 test('installPluginFrom 通过 API 附件写入插件目录', async () => {
 	useRequest((url) => {
-		if (url.endsWith('/releases/latest')) {
+		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			return { status: 200, json: { id: 7, tag_name: 'v2.0.0' } };
 		}
 		if (url.endsWith('/releases/7/attach_files')) {
@@ -233,7 +233,7 @@ test('installPluginFrom 对非法地址给出提示', async () => {
 /** 造一个「有 release 附件」的 Gitee 桩：manifest + main.js。 */
 function stubGiteeRelease(manifest, mainJs = 'console.log(9)') {
 	return useRequest((url) => {
-		if (url.endsWith('/releases/latest')) {
+		if (url.endsWith('/releases?per_page=20&direction=desc')) {
 			return { status: 200, json: { id: 9, tag_name: `v${manifest.version}` } };
 		}
 		if (url.endsWith('/releases/9/attach_files')) {
@@ -439,5 +439,179 @@ test('R9：用户原本未启用旧 id 时迁移不新增条目', async () => {
 		writes.some((write) => write.path.endsWith('community-plugins.json')),
 		false,
 		'未启用就不该动 community-plugins.json',
+	);
+});
+
+// ---------------------------------------------------------------------------
+// Pre-Release 通道（release 列表过滤 + HTML fallback 判据 + 越权修复）
+// ---------------------------------------------------------------------------
+
+const GITEE_RELEASE_LIST_URL =
+	'https://gitee.com/api/v5/repos/johnnylearns/ioto-dashboard/releases?per_page=20&direction=desc';
+
+function giteeRelease(id, version, prerelease, published) {
+	return {
+		id,
+		tag_name: `v${version}`,
+		prerelease,
+		created_at: published,
+	};
+}
+
+function useGiteeChannelRequest({
+	preVersion = '2.0.1',
+	stableVersion = '2.0.0',
+} = {}) {
+	const stableManifestUrl = `https://gitee.example/stable-${stableVersion}.json`;
+	const preManifestUrl = `https://gitee.example/pre-${preVersion}.json`;
+	const calls = useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) {
+			return {
+				status: 200,
+				json: [
+					giteeRelease(1, stableVersion, false, '2026-11-20T10:00:00Z'),
+					giteeRelease(2, preVersion, true, '2026-11-26T10:00:00Z'),
+				],
+			};
+		}
+		if (url.endsWith('/releases/1/attach_files')) {
+			return {
+				status: 200,
+				json: [
+					{ name: 'manifest.json', browser_download_url: stableManifestUrl },
+				],
+			};
+		}
+		if (url.endsWith('/releases/2/attach_files')) {
+			return {
+				status: 200,
+				json: [
+					{ name: 'manifest.json', browser_download_url: preManifestUrl },
+				],
+			};
+		}
+		if (url === stableManifestUrl) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: stableVersion }),
+			};
+		}
+		if (url === preManifestUrl) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: preVersion }),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+	return calls;
+}
+
+test('Gitee prerelease 通道：只取 prerelease=true 的 release', async () => {
+	useGiteeChannelRequest();
+	const result = await GiteeService.getLatestPluginManifest(
+		REPO,
+		'prerelease',
+	);
+	assert.equal(result.version, '2.0.1');
+});
+
+test('Gitee 正式通道：显式排除 prerelease（越权修复）', async () => {
+	const calls = useGiteeChannelRequest();
+	const result = await GiteeService.getLatestPluginManifest(REPO, 'stable');
+	assert.equal(result.version, '2.0.0');
+	assert.ok(calls.some((url) => url.endsWith('/releases/1/attach_files')));
+	assert.ok(!calls.some((url) => url.endsWith('/releases/2/attach_files')));
+});
+
+test('Gitee HTML fallback：按通道跳过预发布 tag', async () => {
+	const html = [
+		'<span>预发布</span>',
+		'<a href="/johnnylearns/ioto-dashboard/releases/download/v2.0.1/manifest.json">v2.0.1</a>',
+		'x'.repeat(800), // 真实 release 区块远长于此，确保两个 tag 的上下文不串
+		'<a href="/johnnylearns/ioto-dashboard/releases/download/v2.0.0/manifest.json">v2.0.0</a>',
+	].join('');
+	useRequest((url) => {
+		if (url === GITEE_RELEASE_LIST_URL) throw new Error('rate limited');
+		if (url.endsWith('/johnnylearns/ioto-dashboard/releases')) {
+			return { status: 200, text: html };
+		}
+		if (url.endsWith('/releases/download/v2.0.0/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '2.0.0' }),
+			};
+		}
+		if (url.endsWith('/releases/download/v2.0.1/manifest.json')) {
+			return {
+				status: 200,
+				text: JSON.stringify({ ...MANIFEST, version: '2.0.1' }),
+			};
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+
+	const stable = await GiteeService.getLatestPluginManifest(REPO, 'stable');
+	assert.equal(stable.version, '2.0.0');
+
+	GiteeService.clearManifestCache();
+	const pre = await GiteeService.getLatestPluginManifest(REPO, 'prerelease');
+	assert.equal(pre.version, '2.0.1');
+});
+
+test('回归：release 列表必须显式降序，否则 Gitee 默认升序会让预发布用户取到旧版', async () => {
+	const stableManifestUrl = 'https://gitee.example/asc-stable.json';
+	const preManifestUrl = 'https://gitee.example/asc-pre.json';
+	let listUrl = '';
+	useRequest((url) => {
+		if (url.includes('/releases?per_page=20')) {
+			listUrl = url;
+			// 模拟 Gitee 真实行为：不带 direction 时按创建时间升序，per_page=20 只拿到
+			// 最旧 20 条（最新预发布在列表之外，取不到）；带 direction=desc 时降序，
+			// 最新预发布排在最前。
+			if (url.includes('direction=desc')) {
+				return {
+					status: 200,
+					json: [
+						giteeRelease(2, '2.0.1', true, '2026-11-26T10:00:00Z'),
+						giteeRelease(1, '2.0.0', false, '2026-11-20T10:00:00Z'),
+					],
+				};
+			}
+			return {
+				status: 200,
+				json: [giteeRelease(1, '2.0.0', false, '2026-11-20T10:00:00Z')],
+			};
+		}
+		if (url.endsWith('/releases/1/attach_files')) {
+			return {
+				status: 200,
+				json: [
+					{ name: 'manifest.json', browser_download_url: stableManifestUrl },
+				],
+			};
+		}
+		if (url.endsWith('/releases/2/attach_files')) {
+			return {
+				status: 200,
+				json: [
+					{ name: 'manifest.json', browser_download_url: preManifestUrl },
+				],
+			};
+		}
+		if (url === stableManifestUrl) {
+			return { status: 200, text: JSON.stringify({ ...MANIFEST, version: '2.0.0' }) };
+		}
+		if (url === preManifestUrl) {
+			return { status: 200, text: JSON.stringify({ ...MANIFEST, version: '2.0.1' }) };
+		}
+		throw new Error(`unexpected url: ${url}`);
+	});
+
+	const result = await GiteeService.getLatestPluginManifest(REPO, 'prerelease');
+	assert.equal(result.version, '2.0.1');
+	assert.ok(
+		listUrl.includes('direction=desc'),
+		'release 列表请求必须显式带 direction=desc',
 	);
 });
